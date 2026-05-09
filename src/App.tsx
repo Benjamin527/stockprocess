@@ -322,7 +322,7 @@ function App() {
                   <div className="tesla-car-stage">
                     <span className="tesla-halo" />
                     <img
-                      src="/tesla-model-3-stealth.png"
+                      src="/tesla-model3-black.png"
                       alt="Tesla Model 3"
                       className="tesla-car-mark"
                     />

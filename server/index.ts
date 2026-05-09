@@ -4,13 +4,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { buildMonthlySummary } from '../src/lib/calendar.js'
+import { resolveDbPath } from './config.js'
 import { createStore } from './store.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const rootDir = path.resolve(__dirname, '..')
 const publicDir = path.resolve(rootDir, '..', 'dist')
-const dbPath = process.env.DB_PATH ?? path.resolve(rootDir, '..', 'data', 'profit-calendar.db')
+const dbPath = resolveDbPath(rootDir)
 const port = Number(process.env.PORT ?? 3000)
 
 fs.mkdirSync(path.dirname(dbPath), { recursive: true })
