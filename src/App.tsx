@@ -319,12 +319,14 @@ function App() {
                   <strong>{teslaPercent.toFixed(1).replace('.0', '')}%</strong>
                 </div>
                 <div className="tesla-visual">
-                  <span className="tesla-halo" />
-                  <img
-                    src="/tesla-model-3-stealth.png"
-                    alt="Tesla Model 3"
-                    className="tesla-car-mark"
-                  />
+                  <div className="tesla-car-stage">
+                    <span className="tesla-halo" />
+                    <img
+                      src="/tesla-model-3-stealth.png"
+                      alt="Tesla Model 3"
+                      className="tesla-car-mark"
+                    />
+                  </div>
                   <p className="tesla-meta">距离目标还差 {formatCurrency(Math.max(0, teslaProgress.targetUsd - teslaProgress.currentUsd))}</p>
                 </div>
                 <div className="tesla-progress-bar">
