@@ -1,19 +1,22 @@
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import {
+  ArrowDown,
+  BatteryCharging,
   Bell,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   Gauge,
-  LayoutDashboard,
+  Grid2X2,
+  History,
   PencilLine,
   Plus,
+  Power,
   Save,
-  Target,
+  Settings,
+  Star,
   Trash2,
-  TrendingDown,
-  TrendingUp,
   Wallet,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -44,7 +47,7 @@ type EditableEntry = {
 
 type ActiveView = 'dashboard' | 'goals'
 
-const weekdayLabelsZh = ['日', '一', '二', '三', '四', '五', '六']
+const weekdayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 const sourceOptions = [
   { value: 'Longbridge', label: '长桥' },
   { value: 'Other', label: '其他' },
@@ -63,6 +66,23 @@ function formatCurrency(value: number) {
 function formatSignedCurrency(value: number) {
   const sign = value > 0 ? '+' : ''
   return `${sign}${formatCurrency(value)}`
+}
+
+function formatCompactSignedCurrency(value: number) {
+  if (!Number.isFinite(value)) {
+    return '--'
+  }
+
+  const sign = value > 0 ? '+' : value < 0 ? '-' : ''
+  const absolute = Math.abs(value)
+  const suffix = absolute >= 1000 ? 'k' : ''
+  const displayValue = absolute >= 1000 ? absolute / 1000 : absolute
+  const formatted = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: absolute >= 1000 ? 1 : 0,
+    maximumFractionDigits: absolute >= 1000 ? 1 : 2,
+  }).format(displayValue)
+
+  return `${sign}$${formatted}${suffix}`
 }
 
 function formatCalendarAmount(value: number) {
@@ -200,7 +220,7 @@ function App() {
     if (!summaryData) {
       return []
     }
-    const firstDay = dayjs(`${selectedMonth}-01`).day()
+    const firstDay = (dayjs(`${selectedMonth}-01`).day() + 6) % 7
     const cells = [...Array(firstDay).fill(null), ...summaryData.summary.calendarDays]
     while (cells.length % 7 !== 0) {
       cells.push(null)
@@ -213,10 +233,10 @@ function App() {
     return rows
   }, [selectedMonth, summaryData])
 
-  const monthLabel = dayjs(`${selectedMonth}-01`).format('YYYY/MM')
   const summary = summaryData?.summary
   const teslaProgress = buildTeslaProgress(summary?.yearTotal ?? 0)
   const teslaPercent = Math.max(teslaProgress.progress, 0) * 100
+  const boundedTeslaPercent = Math.max(0, Math.min(teslaProgress.progress, 1)) * 100
 
   async function refreshCurrentView(dateToReload?: string | null) {
     await loadSummary(selectedMonth)
@@ -293,23 +313,24 @@ function App() {
               <div className="panel tesla-panel tesla-panel-top">
                 <div className="tesla-status-row">
                   <div className="tesla-status-title">
-                    <Target size={17} />
+                    <BatteryCharging size={20} />
                     <span>TSLA TARGET STATUS</span>
                   </div>
                   <strong>{teslaPercent.toFixed(1).replace('.0', '')}%</strong>
                 </div>
                 <div className="tesla-visual">
+                  <span className="tesla-halo" />
                   <img
-                    src="https://www.tesla.com/themes/custom/tesla_frontend/assets/favicons/apple-touch-icon-144x144.png"
-                    alt="Tesla"
-                    className="tesla-logo-mark"
+                    src="/tesla-model-3-stealth.png"
+                    alt="Tesla Model 3"
+                    className="tesla-car-mark"
                   />
                   <p className="tesla-meta">距离目标还差 {formatCurrency(Math.max(0, teslaProgress.targetUsd - teslaProgress.currentUsd))}</p>
                 </div>
                 <div className="tesla-progress-bar">
                   <span
                     className="tesla-progress-fill"
-                    style={{ width: `${Math.max(0, Math.min(teslaProgress.progress, 1)) * 100}%` }}
+                    style={{ width: `${boundedTeslaPercent}%` }}
                   />
                 </div>
                 <div className="tesla-progress-range">
@@ -321,18 +342,18 @@ function App() {
 
             <section className="dashboard-stack">
               <div className="stat-grid">
-                <StatBadge icon={<TrendingUp size={18} />} label="本年" value={summary ? formatSignedCurrency(summary.yearTotal) : '--'} />
-                <StatBadge icon={<CalendarDays size={18} />} label="本月" value={summary ? formatSignedCurrency(summary.monthTotal) : '--'} />
-                <StatBadge icon={<Target size={18} />} label="最佳" value={summary?.bestDay ? formatSignedCurrency(summary.bestDay.amountUsd) : '--'} />
-                <StatBadge icon={<TrendingDown size={18} />} label="最低" value={summary?.worstDay ? formatSignedCurrency(summary.worstDay.amountUsd) : '--'} />
+                <StatBadge icon={<Power size={22} />} label="本年" tone="gain" value={summary ? formatCompactSignedCurrency(summary.yearTotal) : '--'} />
+                <StatBadge icon={<CalendarDays size={22} />} label="本月" tone="loss" value={summary ? formatCompactSignedCurrency(summary.monthTotal) : '--'} />
+                <StatBadge icon={<Star size={22} />} label="最佳" tone="loss" value={summary?.bestDay ? formatCompactSignedCurrency(summary.bestDay.amountUsd) : '--'} />
+                <StatBadge icon={<ArrowDown size={22} />} label="最低" tone="danger" value={summary?.worstDay ? formatCompactSignedCurrency(summary.worstDay.amountUsd) : '--'} />
               </div>
 
               <div className="panel panel-calendar app-panel">
             <div className="panel-header app-panel-header">
               <div>
-                <p className="section-label">收益日历 (USD)</p>
-                <h2>{monthLabel}</h2>
+                <h2>收益日历 (USD)</h2>
               </div>
+              <span className="calendar-month-label">{dayjs(`${selectedMonth}-01`).format('MMM YYYY')}</span>
               <div className="month-controls">
                 <button
                   type="button"
@@ -352,7 +373,7 @@ function App() {
             </div>
 
             <div className="weekday-row">
-              {weekdayLabelsZh.map((label) => (
+              {weekdayLabels.map((label) => (
                 <span key={label}>{label}</span>
               ))}
             </div>
@@ -390,19 +411,18 @@ function App() {
                       title={day.closedLabel ?? day.date}
                     >
                       <span className="day-number">{String(day.dayOfMonth).padStart(2, '0')}</span>
-                      <div className={`calendar-value ${day.entryCount === 0 ? 'muted' : ''}`}>
-                        {day.entryCount > 0 ? (
-                          formatCalendarAmount(day.amountUsd)
-                        ) : day.closedLabel ? (
-                          <span className="empty-copy">{formatClosedTag(day.closedLabel)}</span>
-                        ) : (
-                          <span className="empty-copy">--</span>
-                        )}
-                      </div>
+                      {day.entryCount > 0 ? <div className="calendar-value">{formatCalendarAmount(day.amountUsd)}</div> : null}
+                      {day.entryCount === 0 && day.closedLabel ? <span className="empty-copy">{formatClosedTag(day.closedLabel)}</span> : null}
                     </button>
                   )
                 }),
               )}
+            </div>
+
+            <div className="calendar-legend">
+              <span><i className="legend-dot gain" />Gains</span>
+              <span><i className="legend-dot loss" />Losses</span>
+              <span><i className="legend-dot flat" />Intermediate</span>
             </div>
           </div>
 
@@ -623,7 +643,7 @@ function App() {
           className={`bottom-nav-item ${activeView === 'dashboard' ? 'active' : ''}`}
           onClick={() => setActiveView('dashboard')}
         >
-          <LayoutDashboard size={19} />
+          <Grid2X2 size={23} />
           <span>Dashboard</span>
         </button>
         <button
@@ -631,8 +651,16 @@ function App() {
           className={`bottom-nav-item ${activeView === 'goals' ? 'active' : ''}`}
           onClick={() => setActiveView('goals')}
         >
-          <Target size={19} />
+          <Power size={23} />
           <span>Goals</span>
+        </button>
+        <button type="button" className="bottom-nav-item muted" aria-disabled="true">
+          <History size={23} />
+          <span>History</span>
+        </button>
+        <button type="button" className="bottom-nav-item muted" aria-disabled="true">
+          <Settings size={23} />
+          <span>Settings</span>
         </button>
       </nav>
 
@@ -644,17 +672,19 @@ function App() {
 function StatBadge({
   icon,
   label,
+  tone,
   value,
 }: {
   icon: ReactNode
   label: string
+  tone: 'gain' | 'loss' | 'danger'
   value: string
 }) {
   return (
-    <div className="stat-badge">
+    <div className={`stat-badge ${tone}`}>
       <div>
         <span className="stat-badge-label">{label}</span>
-        <strong className="stat-badge-value">{value.replace('$', '')}</strong>
+        <strong className="stat-badge-value">{value}</strong>
       </div>
       <span className="stat-badge-icon">{icon}</span>
     </div>

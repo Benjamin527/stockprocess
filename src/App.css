@@ -1,13 +1,15 @@
 :root {
   --bg: #000;
-  --surface: rgba(20, 20, 20, 0.72);
+  --surface: rgba(20, 20, 20, 0.7);
   --surface-2: rgba(31, 31, 31, 0.78);
-  --surface-3: #2a2a2a;
+  --surface-3: #353535;
   --text: #e2e2e2;
   --muted: #e6bdbb;
-  --muted-soft: rgba(230, 189, 187, 0.55);
+  --muted-soft: rgba(230, 189, 187, 0.56);
   --red: #e31937;
-  --green: #77d4e3;
+  --cyan: #77d4e3;
+  --gold: #ffdb3c;
+  --danger: #ffb4ab;
   --line: rgba(255, 255, 255, 0.12);
   --line-soft: rgba(255, 255, 255, 0.06);
 }
@@ -17,8 +19,8 @@
   padding: 0 0 92px;
   color: var(--text);
   background:
-    radial-gradient(circle at 50% -12%, rgba(227, 25, 55, 0.2), transparent 26%),
-    radial-gradient(circle at 90% 20%, rgba(119, 212, 227, 0.08), transparent 24%),
+    radial-gradient(circle at 50% 18%, rgba(227, 25, 55, 0.12), transparent 34%),
+    radial-gradient(circle at 78% 72%, rgba(119, 212, 227, 0.08), transparent 26%),
     #000;
   box-sizing: border-box;
 }
@@ -26,9 +28,9 @@
 .top-bar,
 .bottom-nav {
   z-index: 30;
-  background: rgba(19, 19, 19, 0.82);
-  border-color: var(--line-soft);
-  backdrop-filter: blur(20px);
+  background: rgba(12, 12, 12, 0.82);
+  border-color: var(--line);
+  backdrop-filter: blur(22px);
 }
 
 .top-bar {
@@ -37,9 +39,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 56px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--line-soft);
+  height: 70px;
+  padding: 0 calc(max(20px, (100vw - 549px) / 2 + 28px));
+  border-bottom: 1px solid var(--line);
 }
 
 .brand-lockup,
@@ -52,38 +54,40 @@
 }
 
 .brand-lockup {
-  gap: 8px;
+  gap: 14px;
   color: var(--red);
 }
 
 .brand-lockup h1 {
   margin: 0;
   color: var(--text);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .top-actions {
-  gap: 16px;
+  gap: 18px;
   color: var(--muted);
 }
 
 .avatar-dot {
-  width: 32px;
-  height: 32px;
+  width: 35px;
+  height: 35px;
   border-radius: 999px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(119, 212, 227, 0.25);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.02)),
-    var(--surface-3);
+    radial-gradient(circle at 50% 38%, rgba(230, 189, 187, 0.78) 0 10%, transparent 11%),
+    radial-gradient(circle at 50% 72%, rgba(119, 212, 227, 0.5) 0 22%, transparent 23%),
+    linear-gradient(145deg, #111923, #050607);
+  box-shadow: inset 0 0 12px rgba(119, 212, 227, 0.14);
 }
 
 .app-frame {
-  width: min(100%, 560px);
+  width: min(100%, 549px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 16px 20px 28px;
+  padding: 22px 28px 28px;
   box-sizing: border-box;
 }
 
@@ -93,11 +97,11 @@
 .source-list,
 .recent-list {
   display: grid;
-  gap: 12px;
+  gap: 18px;
 }
 
 .tesla-top-band {
-  margin-bottom: 12px;
+  margin-bottom: 34px;
 }
 
 .panel,
@@ -106,9 +110,11 @@
   position: relative;
   overflow: hidden;
   background: var(--surface);
-  border: 0.5px solid var(--line);
-  border-radius: 12px;
-  box-shadow: inset 0 0 1px rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 28px rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(20px);
 }
 
@@ -119,8 +125,8 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.028;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .panel > *,
@@ -131,28 +137,30 @@
 }
 
 .panel {
-  padding: 20px;
+  padding: 24px;
 }
 
 .section-label {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   color: var(--muted);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .panel-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 
 .panel-header.compact {
+  display: flex;
+  justify-content: space-between;
   margin-bottom: 16px;
 }
 
@@ -160,15 +168,22 @@
 .drawer-header h2 {
   margin: 0;
   color: var(--text);
-  font-size: 24px;
+  font-size: 25px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.calendar-month-label {
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
   font-weight: 800;
-  line-height: 1.12;
-  letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .month-controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .icon-button,
@@ -183,26 +198,26 @@
 }
 
 .icon-button {
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line-soft);
   transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
 }
 
 .icon-button:hover {
   transform: translateY(-1px);
-  background: rgba(227, 25, 55, 0.12);
+  background: rgba(227, 25, 55, 0.14);
   border-color: rgba(227, 25, 55, 0.42);
 }
 
 .tesla-panel {
-  padding: 24px;
+  padding: 40px 34px 34px;
 }
 
 .tesla-status-row {
@@ -210,48 +225,60 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
 }
 
 .tesla-status-title {
-  gap: 8px;
+  gap: 14px;
   color: var(--red);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 .tesla-status-row strong {
   color: var(--red);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 16px;
+  letter-spacing: 0.06em;
 }
 
 .tesla-visual {
   display: grid;
   place-items: center;
-  gap: 16px;
-  min-height: 238px;
-  padding: 24px 0 14px;
+  gap: 28px;
+  min-height: 396px;
+  padding: 16px 0 30px;
 }
 
-.tesla-logo-mark {
-  width: 176px;
-  height: 176px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 30px rgba(227, 25, 55, 0.32));
+.tesla-halo {
+  position: absolute;
+  width: 260px;
+  height: 210px;
+  border-radius: 999px;
+  background: rgba(227, 25, 55, 0.18);
+  filter: blur(42px);
+}
+
+.tesla-car-mark {
+  width: min(100%, 270px);
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  filter: drop-shadow(0 0 30px rgba(227, 25, 55, 0.2));
 }
 
 .tesla-meta {
   margin: 0;
-  color: rgba(230, 189, 187, 0.78);
+  color: rgba(230, 189, 187, 0.86);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .tesla-progress-bar {
-  height: 4px;
+  height: 6px;
   border-radius: 999px;
   overflow: hidden;
   background: var(--surface-3);
@@ -261,82 +288,100 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #ffd700, var(--red));
+  background: linear-gradient(90deg, #ffd700 0%, #ff8a00 42%, var(--red) 100%);
   box-shadow: 0 0 12px rgba(227, 25, 55, 0.44);
+  animation: breathing 3s ease-in-out infinite;
 }
 
 .tesla-progress-range {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
-  color: rgba(230, 189, 187, 0.5);
+  margin-top: 14px;
+  color: rgba(230, 189, 187, 0.68);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 18px;
 }
 
 .stat-badge {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  min-height: 92px;
-  padding: 16px;
+  min-height: 112px;
+  padding: 22px 24px;
+  border-radius: 14px;
+}
+
+.stat-badge.gain {
+  color: var(--red);
+  border-color: rgba(227, 25, 55, 0.22);
+}
+
+.stat-badge.loss {
+  color: var(--cyan);
+  border-color: rgba(119, 212, 227, 0.24);
+}
+
+.stat-badge.danger {
+  color: var(--danger);
+  border-color: rgba(255, 180, 171, 0.24);
 }
 
 .stat-badge-label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   color: var(--muted);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .stat-badge-value {
   display: block;
-  color: var(--red);
-  font-size: 24px;
-  font-weight: 800;
+  color: currentColor;
+  font-size: 34px;
+  font-weight: 900;
   line-height: 1;
   letter-spacing: -0.02em;
 }
 
-.stat-badge:nth-child(2) .stat-badge-value,
-.stat-badge:nth-child(3) .stat-badge-value {
-  color: var(--green);
-}
-
 .stat-badge-icon {
   color: currentColor;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .panel-calendar {
-  padding: 20px;
+  margin-top: 16px;
+  padding: 36px 34px;
 }
 
 .weekday-row,
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .weekday-row {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .weekday-row span {
   text-align: center;
   color: rgba(230, 189, 187, 0.42);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.weekday-row span:nth-last-child(-n + 2) {
+  color: rgba(255, 219, 60, 0.72);
 }
 
 .calendar-blank,
@@ -355,62 +400,70 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 3px;
+  gap: 3px;
+  padding: 5px 2px;
   color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--line-soft);
+  background: rgba(42, 42, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
 
 .calendar-cell:hover,
 .calendar-cell.selected {
-  transform: translateY(-1px);
-  border-color: rgba(227, 25, 55, 0.56);
-  box-shadow: 0 0 14px rgba(227, 25, 55, 0.22);
+  transform: translateY(-1px) scale(1.03);
+  border-color: rgba(227, 25, 55, 0.62);
+  box-shadow: 0 0 12px rgba(227, 25, 55, 0.32);
 }
 
 .calendar-cell.empty {
   color: rgba(230, 189, 187, 0.45);
-  background: rgba(42, 42, 42, 0.42);
+  background: rgba(42, 42, 42, 0.72);
 }
 
 .calendar-cell.weekend,
 .calendar-cell.holiday {
-  color: rgba(230, 189, 187, 0.36);
-  background: rgba(31, 31, 31, 0.72);
+  color: rgba(230, 189, 187, 0.32);
+  background: rgba(31, 31, 31, 0.82);
   border-color: rgba(255, 255, 255, 0.04);
 }
 
-.calendar-cell.profit {
-  background: rgba(227, 25, 55, 0.2);
-  border-color: rgba(227, 25, 55, 0.3);
+.calendar-cell.profit,
+.calendar-cell.strong-profit {
+  color: var(--red);
+  background: rgba(227, 25, 55, 0.18);
+  border-color: rgba(227, 25, 55, 0.42);
 }
 
 .calendar-cell.strong-profit {
   background: rgba(227, 25, 55, 0.42);
-  border-color: rgba(227, 25, 55, 0.58);
-  box-shadow: 0 0 10px rgba(227, 25, 55, 0.22);
+  box-shadow: 0 0 10px rgba(227, 25, 55, 0.3);
 }
 
 .calendar-cell.loss,
 .calendar-cell.strong-loss {
+  color: var(--cyan);
   background: rgba(119, 212, 227, 0.18);
-  border-color: rgba(119, 212, 227, 0.32);
+  border-color: rgba(119, 212, 227, 0.4);
+}
+
+.calendar-cell.neutral {
+  color: var(--gold);
+  background: rgba(255, 219, 60, 0.14);
+  border-color: rgba(255, 219, 60, 0.35);
 }
 
 .day-number {
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 800;
+  color: currentColor;
+  font-size: 17px;
+  font-weight: 900;
   line-height: 1;
 }
 
 .calendar-value {
-  color: var(--red);
+  color: currentColor;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 8px;
+  font-weight: 800;
   line-height: 1;
   text-align: center;
   max-width: 100%;
@@ -418,19 +471,45 @@
   text-overflow: ellipsis;
 }
 
-.calendar-cell.loss .calendar-value,
-.calendar-cell.strong-loss .calendar-value {
-  color: var(--green);
-}
-
-.calendar-cell.strong-profit .calendar-value {
-  color: #fffaf9;
-}
-
-.calendar-value.muted,
 .empty-copy {
-  color: rgba(230, 189, 187, 0.45);
-  font-size: 10px;
+  color: rgba(230, 189, 187, 0.34);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.calendar-legend {
+  display: flex;
+  gap: 18px;
+  margin-top: 30px;
+  color: rgba(230, 189, 187, 0.62);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+}
+
+.legend-dot.gain {
+  background: var(--red);
+}
+
+.legend-dot.loss {
+  background: var(--cyan);
+}
+
+.legend-dot.flat {
+  background: var(--gold);
 }
 
 .side-panel {
@@ -449,23 +528,22 @@
 .goals-page-title h2 {
   margin: 0;
   color: var(--text);
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 26px;
+  font-weight: 900;
 }
 
 .primary-save-button {
   border: 0;
-  border-radius: 999px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 14px;
+  padding: 10px 14px;
   color: #fffaf9;
   background: var(--red);
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   transition: opacity 140ms ease, transform 140ms ease;
 }
@@ -504,7 +582,7 @@
   color: var(--muted);
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .progress-copy strong {
@@ -512,9 +590,8 @@
   margin-top: 6px;
   color: var(--text);
   font-size: 32px;
-  font-weight: 800;
+  font-weight: 900;
   line-height: 1;
-  letter-spacing: -0.02em;
 }
 
 .progress-copy > span:last-child {
@@ -627,7 +704,7 @@
 }
 
 .loss-text {
-  color: var(--green);
+  color: var(--cyan);
 }
 
 .drawer {
@@ -714,7 +791,7 @@
 
 .danger-button {
   background: rgba(255, 180, 171, 0.12);
-  color: #ffb4ab;
+  color: var(--danger);
   border-color: rgba(255, 180, 171, 0.2);
 }
 
@@ -750,75 +827,158 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 64px;
+  height: 86px;
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: center;
-  border-top: 1px solid var(--line-soft);
+  gap: min(42px, 7vw);
+  border-top: 1px solid var(--line);
 }
 
 .bottom-nav-item {
   position: relative;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
-  color: rgba(230, 189, 187, 0.48);
+  gap: 7px;
+  color: rgba(230, 189, 187, 0.58);
   background: transparent;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .bottom-nav-item.active {
   color: var(--red);
-  font-weight: 800;
+}
+
+.bottom-nav-item.muted {
+  cursor: default;
 }
 
 .bottom-nav-item.active::after {
   content: '';
   position: absolute;
-  bottom: -8px;
-  width: 4px;
-  height: 4px;
+  bottom: -10px;
+  width: 5px;
+  height: 5px;
   border-radius: 999px;
   background: var(--red);
   box-shadow: 0 0 8px var(--red);
 }
 
-@media (max-width: 720px) {
-  .app-frame {
-    width: 100%;
-    padding: 16px 20px 28px;
+@keyframes breathing {
+  0%,
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(227, 25, 55, 0.4));
   }
 
+  50% {
+    opacity: 0.72;
+    filter: drop-shadow(0 0 15px rgba(227, 25, 55, 0.8));
+  }
+}
+
+@media (max-width: 720px) {
   .top-bar {
-    padding: 0 20px;
+    height: 70px;
+    padding: 0 28px;
+  }
+
+  .brand-lockup h1 {
+    font-size: 31px;
+  }
+
+  .app-frame {
+    width: 100%;
+    padding: 22px 28px 28px;
+  }
+
+  .tesla-panel {
+    padding: 40px 34px 34px;
   }
 
   .tesla-visual {
-    min-height: 214px;
+    min-height: 396px;
   }
 
   .calendar-grid,
   .weekday-row {
-    gap: 6px;
+    gap: 10px;
   }
 
   .panel-calendar {
-    padding: 18px 14px;
-  }
-
-  .day-number {
-    font-size: 12px;
-  }
-
-  .calendar-value,
-  .calendar-value.muted,
-  .empty-copy {
-    font-size: 9px;
+    padding: 36px 34px;
   }
 
   .drawer {
     inset: 16px;
     width: auto;
+  }
+}
+
+@media (max-width: 430px) {
+  .top-bar,
+  .app-frame {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .brand-lockup h1 {
+    font-size: 26px;
+  }
+
+  .tesla-panel,
+  .panel-calendar {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+
+  .tesla-status-title,
+  .tesla-status-row strong {
+    font-size: 13px;
+  }
+
+  .tesla-visual {
+    min-height: 320px;
+  }
+
+  .tesla-car-mark {
+    width: 230px;
+  }
+
+  .stat-grid {
+    gap: 12px;
+  }
+
+  .stat-badge {
+    min-height: 98px;
+    padding: 18px;
+  }
+
+  .stat-badge-value {
+    font-size: 27px;
+  }
+
+  .calendar-grid,
+  .weekday-row {
+    gap: 7px;
+  }
+
+  .day-number {
+    font-size: 14px;
+  }
+
+  .calendar-legend {
+    gap: 10px;
+    font-size: 11px;
+  }
+
+  .bottom-nav {
+    gap: 20px;
+  }
+
+  .bottom-nav-item {
+    font-size: 11px;
   }
 }
