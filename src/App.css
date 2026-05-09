@@ -1,0 +1,824 @@
+:root {
+  --bg: #000;
+  --surface: rgba(20, 20, 20, 0.72);
+  --surface-2: rgba(31, 31, 31, 0.78);
+  --surface-3: #2a2a2a;
+  --text: #e2e2e2;
+  --muted: #e6bdbb;
+  --muted-soft: rgba(230, 189, 187, 0.55);
+  --red: #e31937;
+  --green: #77d4e3;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-soft: rgba(255, 255, 255, 0.06);
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 0 0 92px;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 50% -12%, rgba(227, 25, 55, 0.2), transparent 26%),
+    radial-gradient(circle at 90% 20%, rgba(119, 212, 227, 0.08), transparent 24%),
+    #000;
+  box-sizing: border-box;
+}
+
+.top-bar,
+.bottom-nav {
+  z-index: 30;
+  background: rgba(19, 19, 19, 0.82);
+  border-color: var(--line-soft);
+  backdrop-filter: blur(20px);
+}
+
+.top-bar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.brand-lockup,
+.top-actions,
+.tesla-status-title,
+.source-name,
+.bottom-nav-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.brand-lockup {
+  gap: 8px;
+  color: var(--red);
+}
+
+.brand-lockup h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.top-actions {
+  gap: 16px;
+  color: var(--muted);
+}
+
+.avatar-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.02)),
+    var(--surface-3);
+}
+
+.app-frame {
+  width: min(100%, 560px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 16px 20px 28px;
+  box-sizing: border-box;
+}
+
+.tesla-top-band,
+.dashboard-stack,
+.goal-stack,
+.source-list,
+.recent-list {
+  display: grid;
+  gap: 12px;
+}
+
+.tesla-top-band {
+  margin-bottom: 12px;
+}
+
+.panel,
+.drawer,
+.stat-badge {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface);
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  box-shadow: inset 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+}
+
+.panel::before,
+.drawer::before,
+.stat-badge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.panel > *,
+.drawer > *,
+.stat-badge > * {
+  position: relative;
+  z-index: 1;
+}
+
+.panel {
+  padding: 20px;
+}
+
+.section-label {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.panel-header.compact {
+  margin-bottom: 16px;
+}
+
+.panel-header h2,
+.drawer-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.month-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-button,
+.secondary-button,
+.danger-button,
+.add-entry-button,
+.calendar-cell,
+.bottom-nav-item {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.icon-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line-soft);
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.icon-button:hover {
+  transform: translateY(-1px);
+  background: rgba(227, 25, 55, 0.12);
+  border-color: rgba(227, 25, 55, 0.42);
+}
+
+.tesla-panel {
+  padding: 24px;
+}
+
+.tesla-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.tesla-status-title {
+  gap: 8px;
+  color: var(--red);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.tesla-status-row strong {
+  color: var(--red);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+.tesla-visual {
+  display: grid;
+  place-items: center;
+  gap: 16px;
+  min-height: 238px;
+  padding: 24px 0 14px;
+}
+
+.tesla-logo-mark {
+  width: 176px;
+  height: 176px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 30px rgba(227, 25, 55, 0.32));
+}
+
+.tesla-meta {
+  margin: 0;
+  color: rgba(230, 189, 187, 0.78);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+.tesla-progress-bar {
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.tesla-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffd700, var(--red));
+  box-shadow: 0 0 12px rgba(227, 25, 55, 0.44);
+}
+
+.tesla-progress-range {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: rgba(230, 189, 187, 0.5);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat-badge {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  min-height: 92px;
+  padding: 16px;
+}
+
+.stat-badge-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stat-badge-value {
+  display: block;
+  color: var(--red);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.stat-badge:nth-child(2) .stat-badge-value,
+.stat-badge:nth-child(3) .stat-badge-value {
+  color: var(--green);
+}
+
+.stat-badge-icon {
+  color: currentColor;
+  opacity: 0.9;
+}
+
+.panel-calendar {
+  padding: 20px;
+}
+
+.weekday-row,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.weekday-row {
+  margin-bottom: 8px;
+}
+
+.weekday-row span {
+  text-align: center;
+  color: rgba(230, 189, 187, 0.42);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.calendar-blank,
+.calendar-cell {
+  min-height: unset;
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+}
+
+.calendar-blank {
+  opacity: 0;
+}
+
+.calendar-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 3px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.calendar-cell:hover,
+.calendar-cell.selected {
+  transform: translateY(-1px);
+  border-color: rgba(227, 25, 55, 0.56);
+  box-shadow: 0 0 14px rgba(227, 25, 55, 0.22);
+}
+
+.calendar-cell.empty {
+  color: rgba(230, 189, 187, 0.45);
+  background: rgba(42, 42, 42, 0.42);
+}
+
+.calendar-cell.weekend,
+.calendar-cell.holiday {
+  color: rgba(230, 189, 187, 0.36);
+  background: rgba(31, 31, 31, 0.72);
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
+.calendar-cell.profit {
+  background: rgba(227, 25, 55, 0.2);
+  border-color: rgba(227, 25, 55, 0.3);
+}
+
+.calendar-cell.strong-profit {
+  background: rgba(227, 25, 55, 0.42);
+  border-color: rgba(227, 25, 55, 0.58);
+  box-shadow: 0 0 10px rgba(227, 25, 55, 0.22);
+}
+
+.calendar-cell.loss,
+.calendar-cell.strong-loss {
+  background: rgba(119, 212, 227, 0.18);
+  border-color: rgba(119, 212, 227, 0.32);
+}
+
+.day-number {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.calendar-value {
+  color: var(--red);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-cell.loss .calendar-value,
+.calendar-cell.strong-loss .calendar-value {
+  color: var(--green);
+}
+
+.calendar-cell.strong-profit .calendar-value {
+  color: #fffaf9;
+}
+
+.calendar-value.muted,
+.empty-copy {
+  color: rgba(230, 189, 187, 0.45);
+  font-size: 10px;
+}
+
+.side-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.goals-view {
+  padding-top: 8px;
+}
+
+.goals-page-title {
+  padding: 4px 0 0;
+}
+
+.goals-page-title h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.primary-save-button {
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  color: #fffaf9;
+  background: var(--red);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.primary-save-button:hover {
+  transform: translateY(-1px);
+}
+
+.primary-save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.progress-card {
+  padding: 20px;
+  border-radius: 12px;
+  background: rgba(20, 20, 20, 0.54);
+  border: 1px solid var(--line-soft);
+}
+
+.progress-card:nth-child(2) {
+  border-color: rgba(227, 25, 55, 0.32);
+  box-shadow: 0 0 20px rgba(227, 25, 55, 0.2);
+}
+
+.progress-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.progress-copy span,
+.goal-input span,
+.entry-card label span {
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.progress-copy strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.progress-copy > span:last-child {
+  align-self: flex-start;
+  color: #fffaf9;
+  background: var(--red);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffd700, var(--red));
+  box-shadow: 0 0 12px rgba(227, 25, 55, 0.4);
+}
+
+.goal-input {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.goal-input input,
+.entry-card input,
+.entry-card select,
+.entry-card textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background: rgba(27, 27, 27, 0.88);
+  color: var(--text);
+  padding: 11px 12px;
+  box-sizing: border-box;
+  font-family: 'JetBrains Mono', monospace;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.goal-input input:focus,
+.entry-card input:focus,
+.entry-card select:focus,
+.entry-card textarea:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(227, 25, 55, 0.18);
+}
+
+.source-row,
+.recent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 8px;
+  border-radius: 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.source-name {
+  gap: 10px;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.source-name svg {
+  width: 32px;
+  height: 32px;
+  padding: 8px;
+  border-radius: 999px;
+  color: var(--red);
+  background: var(--surface-3);
+}
+
+.recent-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.recent-row div strong {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.recent-row div span {
+  color: var(--muted-soft);
+  font-size: 12px;
+}
+
+.source-row strong,
+.recent-row strong {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+}
+
+.profit-text {
+  color: var(--red);
+}
+
+.loss-text {
+  color: var(--green);
+}
+
+.drawer {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  width: min(400px, calc(100vw - 16px));
+  transform: translateX(calc(100% + 32px));
+  transition: transform 180ms ease;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer.open {
+  transform: translateX(0);
+}
+
+.drawer-header {
+  padding: 24px 24px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.drawer-body {
+  padding: 20px 24px 24px;
+  overflow: auto;
+  display: grid;
+  gap: 16px;
+}
+
+.entry-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  padding: 18px;
+  background: rgba(20, 20, 20, 0.64);
+}
+
+.entry-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.entry-card label {
+  display: grid;
+  gap: 8px;
+}
+
+.entry-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.secondary-button,
+.danger-button,
+.add-entry-button {
+  padding: 11px 14px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.secondary-button:hover,
+.danger-button:hover,
+.add-entry-button:hover {
+  transform: translateY(-1px);
+}
+
+.secondary-button {
+  background: var(--red);
+  color: #fffaf9;
+}
+
+.danger-button {
+  background: rgba(255, 180, 171, 0.12);
+  color: #ffb4ab;
+  border-color: rgba(255, 180, 171, 0.2);
+}
+
+.add-entry-button {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.empty-state {
+  margin: 0;
+  color: var(--muted-soft);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.loading-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  font-size: 16px;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 64px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid var(--line-soft);
+}
+
+.bottom-nav-item {
+  position: relative;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  color: rgba(230, 189, 187, 0.48);
+  background: transparent;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+}
+
+.bottom-nav-item.active {
+  color: var(--red);
+  font-weight: 800;
+}
+
+.bottom-nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--red);
+  box-shadow: 0 0 8px var(--red);
+}
+
+@media (max-width: 720px) {
+  .app-frame {
+    width: 100%;
+    padding: 16px 20px 28px;
+  }
+
+  .top-bar {
+    padding: 0 20px;
+  }
+
+  .tesla-visual {
+    min-height: 214px;
+  }
+
+  .calendar-grid,
+  .weekday-row {
+    gap: 6px;
+  }
+
+  .panel-calendar {
+    padding: 18px 14px;
+  }
+
+  .day-number {
+    font-size: 12px;
+  }
+
+  .calendar-value,
+  .calendar-value.muted,
+  .empty-copy {
+    font-size: 9px;
+  }
+
+  .drawer {
+    inset: 16px;
+    width: auto;
+  }
+}
