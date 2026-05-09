@@ -256,8 +256,8 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: min(100%, 360px);
-  aspect-ratio: 892 / 407;
+  width: min(100%, 318px);
+  aspect-ratio: 1 / 1;
   isolation: isolate;
 }
 
@@ -279,11 +279,11 @@
 }
 
 .tesla-car-stage::after {
-  inset: -18% -10%;
+  inset: -2%;
   border-radius: 999px;
   pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(ellipse at 50% 55%, rgba(227, 25, 55, 0.12), transparent 62%);
+  z-index: 2;
+  background: radial-gradient(circle at 50% 52%, transparent 0 50%, rgba(0, 0, 0, 0.16) 64%, rgba(10, 5, 7, 0.7) 82%, rgba(10, 5, 7, 0.98) 100%);
 }
 
 .tesla-halo {
@@ -299,15 +299,17 @@
 .tesla-car-mark {
   position: relative;
   z-index: 1;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
+  width: min(100%, 300px);
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 999px;
   filter:
-    saturate(0.95)
+    saturate(0.9)
     contrast(1.12)
-    brightness(0.92)
-    drop-shadow(0 18px 34px rgba(0, 0, 0, 0.42))
-    drop-shadow(0 0 34px rgba(227, 25, 55, 0.16));
+    brightness(0.88)
+    drop-shadow(0 0 30px rgba(227, 25, 55, 0.18));
+  -webkit-mask-image: radial-gradient(circle at 50% 52%, #000 0 50%, rgba(0, 0, 0, 0.78) 62%, rgba(0, 0, 0, 0.22) 76%, transparent 88%);
+  mask-image: radial-gradient(circle at 50% 52%, #000 0 50%, rgba(0, 0, 0, 0.78) 62%, rgba(0, 0, 0, 0.22) 76%, transparent 88%);
 }
 
 .tesla-meta {
@@ -873,7 +875,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: min(42px, 7vw);
+  gap: min(96px, 18vw);
   border-top: 1px solid var(--line);
 }
 
@@ -891,10 +893,6 @@
 
 .bottom-nav-item.active {
   color: var(--red);
-}
-
-.bottom-nav-item.muted {
-  cursor: default;
 }
 
 .bottom-nav-item.active::after {
@@ -986,7 +984,7 @@
   }
 
   .tesla-car-mark {
-    width: 100%;
+    width: 230px;
   }
 
   .stat-grid {

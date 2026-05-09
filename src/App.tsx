@@ -9,12 +9,10 @@ import {
   ChevronRight,
   Gauge,
   Grid2X2,
-  History,
   PencilLine,
   Plus,
   Power,
   Save,
-  Settings,
   Star,
   Trash2,
   Wallet,
@@ -322,7 +320,7 @@ function App() {
                   <div className="tesla-car-stage">
                     <span className="tesla-halo" />
                     <img
-                      src="/tesla-model3-black.png"
+                      src="/tesla-model-3-stealth.png"
                       alt="Tesla Model 3"
                       className="tesla-car-mark"
                     />
@@ -655,14 +653,6 @@ function App() {
         >
           <Power size={23} />
           <span>Goals</span>
-        </button>
-        <button type="button" className="bottom-nav-item muted" aria-disabled="true">
-          <History size={23} />
-          <span>History</span>
-        </button>
-        <button type="button" className="bottom-nav-item muted" aria-disabled="true">
-          <Settings size={23} />
-          <span>Settings</span>
         </button>
       </nav>
 
