@@ -18,3 +18,5 @@ export type TeslaProgress = {
   targetUsd: number
   progress: number
 }
+
+export type RangeKey = '1W' | '1M' | '6M' | '1Y'

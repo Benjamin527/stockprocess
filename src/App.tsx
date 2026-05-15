@@ -1,33 +1,31 @@
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import {
-  ArrowDown,
-  BatteryCharging,
-  Bell,
+  Activity,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Gauge,
-  Grid2X2,
   PencilLine,
   Plus,
-  Power,
   Save,
-  Star,
+  Target,
   Trash2,
+  TrendingDown,
+  TrendingUp,
   Wallet,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { buildTeslaProgress } from './lib/calendar.js'
-import type { MonthlySummary } from './lib/calendar'
-import type { GoalSettings, ProfitEntry } from './lib/types'
+import type { MonthlySummary, TimelineSummary } from './lib/calendar'
+import type { GoalSettings, ProfitEntry, RangeKey } from './lib/types'
 import './App.css'
 
 type SummaryResponse = {
   goals: GoalSettings
   summary: MonthlySummary
+  timeline: Record<RangeKey, TimelineSummary>
   recentEntries: ProfitEntry[]
 }
 
@@ -43,9 +41,8 @@ type EditableEntry = {
   note: string
 }
 
-type ActiveView = 'dashboard' | 'goals'
-
 const weekdayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
+const rangeOptions: RangeKey[] = ['1W', '1M', '6M', '1Y']
 const sourceOptions = [
   { value: 'Longbridge', label: '长桥' },
   { value: 'Other', label: '其他' },
@@ -61,17 +58,16 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
-function formatSignedCurrency(value: number) {
-  const sign = value > 0 ? '+' : ''
-  return `${sign}${formatCurrency(value)}`
+function formatDelta(value: number) {
+  const sign = value > 0 ? '+' : value < 0 ? '-' : ''
+  return `${sign}${formatCurrency(Math.abs(value))}`
 }
 
-function formatCompactSignedCurrency(value: number) {
+function formatCompactCurrency(value: number) {
   if (!Number.isFinite(value)) {
     return '--'
   }
 
-  const sign = value > 0 ? '+' : value < 0 ? '-' : ''
   const absolute = Math.abs(value)
   const suffix = absolute >= 1000 ? 'k' : ''
   const displayValue = absolute >= 1000 ? absolute / 1000 : absolute
@@ -80,17 +76,12 @@ function formatCompactSignedCurrency(value: number) {
     maximumFractionDigits: absolute >= 1000 ? 1 : 2,
   }).format(displayValue)
 
-  return `${sign}$${formatted}${suffix}`
+  return `$${formatted}${suffix}`
 }
 
-function formatCalendarAmount(value: number) {
+function formatPercent(value: number) {
   const sign = value > 0 ? '+' : value < 0 ? '-' : ''
-  const absolute = Math.abs(value)
-  const formatted = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(absolute)
-  return `${sign}${formatted}`
+  return `${sign}${Math.abs(value * 100).toFixed(2)}%`
 }
 
 function formatClosedTag(label: string | null) {
@@ -98,6 +89,10 @@ function formatClosedTag(label: string | null) {
     return null
   }
   return label.includes('周末') ? '周末' : '休市'
+}
+
+function getSourceLabel(source: string) {
+  return sourceOptions.find((option) => option.value === source)?.label ?? source
 }
 
 function emptyDraft(date: string): EditableEntry {
@@ -109,8 +104,25 @@ function emptyDraft(date: string): EditableEntry {
   }
 }
 
-function getSourceLabel(source: string) {
-  return sourceOptions.find((option) => option.value === source)?.label ?? source
+function buildChartPath(points: Array<{ x: number; y: number }>) {
+  if (points.length === 0) {
+    return ''
+  }
+
+  return points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(' ')
+}
+
+function buildAreaPath(points: Array<{ x: number; y: number }>, height: number) {
+  if (points.length === 0) {
+    return ''
+  }
+
+  const linePath = buildChartPath(points)
+  const first = points[0]
+  const last = points[points.length - 1]
+  return `${linePath} L ${last.x.toFixed(2)} ${height} L ${first.x.toFixed(2)} ${height} Z`
 }
 
 function App() {
@@ -118,20 +130,17 @@ function App() {
   const [summaryData, setSummaryData] = useState<SummaryResponse | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [dayEntries, setDayEntries] = useState<EditableEntry[]>([])
+  const [selectedRange, setSelectedRange] = useState<RangeKey>('1M')
+  const [targetDraft, setTargetDraft] = useState('50000')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeView, setActiveView] = useState<ActiveView>('dashboard')
-  const [goalDraft, setGoalDraft] = useState({ annualTargetUsd: '10000', monthlyTargetUsd: '1000' })
 
   async function loadSummary(month: string) {
     setLoading(true)
     const response = await fetch(`/api/summary?month=${month}`)
     const data = (await response.json()) as SummaryResponse
     setSummaryData(data)
-    setGoalDraft({
-      annualTargetUsd: String(data.goals.annualTargetUsd),
-      monthlyTargetUsd: String(data.goals.monthlyTargetUsd),
-    })
+    setTargetDraft(String(data.goals.annualTargetUsd))
     setLoading(false)
   }
 
@@ -155,7 +164,6 @@ function App() {
     let cancelled = false
 
     async function run() {
-      setLoading(true)
       const response = await fetch(`/api/summary?month=${selectedMonth}`)
       const data = (await response.json()) as SummaryResponse
 
@@ -164,10 +172,7 @@ function App() {
       }
 
       setSummaryData(data)
-      setGoalDraft({
-        annualTargetUsd: String(data.goals.annualTargetUsd),
-        monthlyTargetUsd: String(data.goals.monthlyTargetUsd),
-      })
+      setTargetDraft(String(data.goals.annualTargetUsd))
       setLoading(false)
     }
 
@@ -214,10 +219,15 @@ function App() {
     }
   }, [selectedDate])
 
+  const summary = summaryData?.summary
+  const timeline = summaryData?.timeline[selectedRange] ?? null
+  const teslaProgress = buildTeslaProgress(summary?.latestValue ?? 0)
+
   const calendarRows = useMemo(() => {
     if (!summaryData) {
       return []
     }
+
     const firstDay = (dayjs(`${selectedMonth}-01`).day() + 6) % 7
     const cells = [...Array(firstDay).fill(null), ...summaryData.summary.calendarDays]
     while (cells.length % 7 !== 0) {
@@ -228,13 +238,47 @@ function App() {
     for (let index = 0; index < cells.length; index += 7) {
       rows.push(cells.slice(index, index + 7))
     }
+
     return rows
   }, [selectedMonth, summaryData])
 
-  const summary = summaryData?.summary
-  const teslaProgress = buildTeslaProgress(summary?.yearTotal ?? 0)
-  const teslaPercent = Math.max(teslaProgress.progress, 0) * 100
-  const boundedTeslaPercent = Math.max(0, Math.min(teslaProgress.progress, 1)) * 100
+  const calendarRange = useMemo(() => {
+    const values = summary?.calendarDays.filter((day) => day.entryCount > 0).map((day) => day.amountUsd) ?? []
+    return {
+      min: values.length > 0 ? Math.min(...values) : 0,
+      max: values.length > 0 ? Math.max(...values) : 0,
+    }
+  }, [summary])
+
+  const chartGeometry = useMemo(() => {
+    if (!timeline || timeline.points.length === 0) {
+      return null
+    }
+
+    const width = 640
+    const height = 240
+    const paddingX = 10
+    const paddingY = 16
+    const amountRange = timeline.maxValue - timeline.minValue || 1
+    const stepX = timeline.points.length === 1 ? 0 : (width - paddingX * 2) / (timeline.points.length - 1)
+
+    const points = timeline.points.map((point, index) => ({
+      ...point,
+      x: paddingX + stepX * index,
+      y:
+        height -
+        paddingY -
+        ((point.amountUsd - timeline.minValue) / amountRange) * (height - paddingY * 2),
+    }))
+
+    return {
+      width,
+      height,
+      points,
+      linePath: buildChartPath(points),
+      areaPath: buildAreaPath(points, height - 4),
+    }
+  }, [timeline])
 
   async function refreshCurrentView(dateToReload?: string | null) {
     await loadSummary(selectedMonth)
@@ -243,14 +287,14 @@ function App() {
     }
   }
 
-  async function saveGoals() {
+  async function saveTarget() {
     setSaving(true)
     await fetch(`/api/goals/${selectedMonth.slice(0, 4)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        annualTargetUsd: Number(goalDraft.annualTargetUsd),
-        monthlyTargetUsd: Number(goalDraft.monthlyTargetUsd),
+        annualTargetUsd: Number(targetDraft),
+        monthlyTargetUsd: summaryData?.goals.monthlyTargetUsd ?? 1000,
       }),
     })
     await refreshCurrentView(selectedDate)
@@ -295,142 +339,183 @@ function App() {
     <main className="app-shell">
       <header className="top-bar">
         <div className="brand-lockup">
-          <Gauge size={22} />
-          <h1>Alpha Monitor</h1>
+          <Activity size={20} />
+          <div>
+            <p>Portfolio Pulse</p>
+            <h1>持仓面板</h1>
+          </div>
         </div>
-        <div className="top-actions">
-          <Bell size={20} />
-          <span className="avatar-dot" />
-        </div>
+        <button type="button" className="target-chip" onClick={saveTarget} disabled={saving}>
+          <Target size={16} />
+          <span>目标 {formatCompactCurrency(Number(targetDraft) || 0)}</span>
+        </button>
       </header>
 
       <div className="app-frame">
-        {activeView === 'dashboard' ? (
-          <>
-            <section className="tesla-top-band">
-              <div className="panel tesla-panel tesla-panel-top">
-                <div className="tesla-status-row">
-                  <div className="tesla-status-title">
-                    <BatteryCharging size={20} />
-                    <span>TSLA TARGET STATUS</span>
-                  </div>
-                  <strong>{teslaPercent.toFixed(1).replace('.0', '')}%</strong>
-                </div>
-                <div className="tesla-visual">
-                  <div className="tesla-car-stage">
-                    <span className="tesla-halo" />
-                    <img
-                      src="/tesla-model-3-stealth.png"
-                      alt="Tesla Model 3"
-                      className="tesla-car-mark"
-                    />
-                  </div>
-                  <p className="tesla-meta">距离目标还差 {formatCurrency(Math.max(0, teslaProgress.targetUsd - teslaProgress.currentUsd))}</p>
-                </div>
-                <div className="tesla-progress-bar">
-                  <span
-                    className="tesla-progress-fill"
-                    style={{ width: `${boundedTeslaPercent}%` }}
-                  />
-                </div>
-                <div className="tesla-progress-range">
-                  <span>$0.00</span>
-                  <span>{formatCurrency(teslaProgress.targetUsd)}</span>
-                </div>
-              </div>
-            </section>
-
-            <section className="dashboard-stack">
-              <div className="stat-grid">
-                <StatBadge icon={<Power size={22} />} label="本年" tone="gain" value={summary ? formatCompactSignedCurrency(summary.yearTotal) : '--'} />
-                <StatBadge icon={<CalendarDays size={22} />} label="本月" tone="loss" value={summary ? formatCompactSignedCurrency(summary.monthTotal) : '--'} />
-                <StatBadge icon={<Star size={22} />} label="最佳" tone="loss" value={summary?.bestDay ? formatCompactSignedCurrency(summary.bestDay.amountUsd) : '--'} />
-                <StatBadge icon={<ArrowDown size={22} />} label="最低" tone="danger" value={summary?.worstDay ? formatCompactSignedCurrency(summary.worstDay.amountUsd) : '--'} />
-              </div>
-
-              <div className="panel panel-calendar app-panel">
-            <div className="panel-header app-panel-header">
-              <div>
-                <h2>收益日历 (USD)</h2>
-              </div>
-              <span className="calendar-month-label">{dayjs(`${selectedMonth}-01`).format('MMM YYYY')}</span>
-              <div className="month-controls">
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={() => setSelectedMonth(dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM'))}
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={() => setSelectedMonth(dayjs(`${selectedMonth}-01`).add(1, 'month').format('YYYY-MM'))}
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
+        <section className="tesla-card">
+          <div className="tesla-copy">
+            <p className="section-label">TSLA Target Status</p>
+            <h2>{Math.round(Math.max(0, teslaProgress.progress) * 100)}%</h2>
+            <p>距离 Tesla 目标还差 {formatCurrency(Math.max(0, teslaProgress.targetUsd - teslaProgress.currentUsd))}</p>
+          </div>
+          <div className="tesla-meter">
+            <div className="tesla-meter-header">
+              <span>当前持仓</span>
+              <strong>{formatCurrency(teslaProgress.currentUsd)}</strong>
             </div>
-
-            <div className="weekday-row">
-              {weekdayLabels.map((label) => (
-                <span key={label}>{label}</span>
-              ))}
+            <div className="hero-progress-bar">
+              <span
+                className="hero-progress-fill"
+                style={{ width: `${Math.max(0, Math.min(teslaProgress.progress, 1)) * 100}%` }}
+              />
             </div>
-
-            <div className="calendar-grid">
-              {calendarRows.flatMap((row, rowIndex) =>
-                row.map((day, columnIndex) => {
-                  if (!day) {
-                    return <div key={`empty-${rowIndex}-${columnIndex}`} className="calendar-blank" />
-                  }
-
-                  const tone =
-                    day.entryCount === 0
-                      ? day.marketState === 'holiday'
-                        ? 'holiday'
-                        : day.marketState === 'weekend'
-                          ? 'weekend'
-                          : 'empty'
-                      : day.amountUsd > 100
-                        ? 'strong-profit'
-                        : day.amountUsd > 0
-                          ? 'profit'
-                          : day.amountUsd < -100
-                            ? 'strong-loss'
-                            : day.amountUsd < 0
-                              ? 'loss'
-                              : 'neutral'
-
-                  return (
-                    <button
-                      key={day.date}
-                      type="button"
-                      className={`calendar-cell ${tone} ${selectedDate === day.date ? 'selected' : ''}`}
-                      onClick={() => setSelectedDate(day.date)}
-                      title={day.closedLabel ?? day.date}
-                    >
-                      <span className="day-number">{String(day.dayOfMonth).padStart(2, '0')}</span>
-                      {day.entryCount > 0 ? <div className="calendar-value">{formatCalendarAmount(day.amountUsd)}</div> : null}
-                      {day.entryCount === 0 && day.closedLabel ? <span className="empty-copy">{formatClosedTag(day.closedLabel)}</span> : null}
-                    </button>
-                  )
-                }),
-              )}
+            <div className="tesla-range">
+              <span>$0</span>
+              <span>{formatCurrency(teslaProgress.targetUsd)}</span>
             </div>
+          </div>
+        </section>
 
-            <div className="calendar-legend">
-              <span><i className="legend-dot gain" />Gains</span>
-              <span><i className="legend-dot loss" />Losses</span>
-              <span><i className="legend-dot flat" />Intermediate</span>
+        <section className="hero-card">
+          <div className="hero-copy">
+            <p className="section-label">Portfolio Value</p>
+            <h2>{formatCurrency(summary?.latestValue ?? 0)}</h2>
+            <div className={`hero-delta ${(summary?.monthChange ?? 0) >= 0 ? 'up' : 'down'}`}>
+              {(summary?.monthChange ?? 0) >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+              <span>本月变化 {formatDelta(summary?.monthChange ?? 0)}</span>
             </div>
           </div>
 
-          <div className="panel side-panel app-panel">
-            <div className="panel-header compact app-panel-header">
+          <div className="hero-progress">
+            <div className="hero-progress-header">
+              <span>持仓目标进度</span>
+              <strong>{Math.round((summary?.targetProgress ?? 0) * 100)}%</strong>
+            </div>
+            <div className="hero-progress-bar">
+              <span
+                className="hero-progress-fill"
+                style={{ width: `${Math.max(0, Math.min(summary?.targetProgress ?? 0, 1)) * 100}%` }}
+              />
+            </div>
+            <label className="target-editor">
+              <span>目标金额 (USD)</span>
+              <input value={targetDraft} onChange={(event) => setTargetDraft(event.target.value)} />
+            </label>
+          </div>
+        </section>
+
+        <section className="stat-grid">
+          <StatCard icon={<Wallet size={18} />} label="当前持仓" value={formatCompactCurrency(summary?.latestValue ?? 0)} />
+          <StatCard icon={<Target size={18} />} label="月度目标" value={formatPercent(summary?.monthlyTargetProgress ?? 0)} />
+          <StatCard icon={<TrendingUp size={18} />} label="本月最高" value={formatCompactCurrency(summary?.highestValueDay?.amountUsd ?? 0)} />
+          <StatCard icon={<TrendingDown size={18} />} label="本月盈利" value={formatCompactCurrency(summary?.monthChange ?? 0)} />
+          <StatCard icon={<CalendarDays size={18} />} label="记录天数" value={String(summary?.calendarDays.filter((day) => day.entryCount > 0).length ?? 0)} />
+        </section>
+
+        <section className="content-grid">
+          <div className="panel chart-panel">
+            <div className="panel-header">
               <div>
-                <p className="section-label">最近记录</p>
-                <h2>本月最新</h2>
+                <p className="section-label">Curve</p>
+                <h3>持仓金额曲线</h3>
+              </div>
+              <div className="chart-summary">
+                <strong>{formatCurrency(timeline?.latestValue ?? 0)}</strong>
+                <span className={(timeline?.changeAmount ?? 0) >= 0 ? 'up-text' : 'down-text'}>
+                  {formatDelta(timeline?.changeAmount ?? 0)} / {formatPercent(timeline?.changePercent ?? 0)}
+                </span>
+              </div>
+            </div>
+
+            <div className="chart-stage">
+              {chartGeometry ? (
+                <svg viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`} className="chart-svg" role="img" aria-label="持仓金额变化曲线">
+                  <defs>
+                    <linearGradient id="curve-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="rgba(79, 209, 197, 0.5)" />
+                      <stop offset="100%" stopColor="rgba(79, 209, 197, 0.02)" />
+                    </linearGradient>
+                  </defs>
+                  <path d={chartGeometry.areaPath} fill="url(#curve-fill)" />
+                  <path d={chartGeometry.linePath} fill="none" stroke="#55f0d7" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                  {chartGeometry.points.map((point) => (
+                    <circle key={point.date} cx={point.x} cy={point.y} r="4.5" fill="#091215" stroke="#8ffff0" strokeWidth="2" />
+                  ))}
+                </svg>
+              ) : (
+                <div className="chart-empty">这个区间还没有持仓记录，先在日历里补一天看看。</div>
+              )}
+            </div>
+
+            <div className="chart-footer">
+              <div className="range-tabs">
+                {rangeOptions.map((range) => (
+                  <button
+                    key={range}
+                    type="button"
+                    className={`range-tab ${selectedRange === range ? 'active' : ''}`}
+                    onClick={() => setSelectedRange(range)}
+                  >
+                    {range}
+                  </button>
+                ))}
+              </div>
+              <div className="chart-dates">
+                <span>{timeline?.startDate ?? '--'}</span>
+                <span>{timeline?.endDate ?? '--'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel side-panel">
+            <div className="panel-header compact">
+              <div>
+                <p className="section-label">Targets</p>
+                <h3>月度目标</h3>
+              </div>
+            </div>
+            <div className="goal-card">
+              <div className="goal-card-row">
+                <span>月度目标金额</span>
+                <strong>{formatCurrency(summaryData?.goals.monthlyTargetUsd ?? 1000)}</strong>
+              </div>
+              <div className="goal-card-row">
+                <span>当前月盈利</span>
+                <strong>{formatCurrency(summary?.monthChange ?? 0)}</strong>
+              </div>
+              <div className="hero-progress-bar">
+                <span
+                  className="hero-progress-fill"
+                  style={{ width: `${Math.max(0, Math.min(summary?.monthlyTargetProgress ?? 0, 1)) * 100}%` }}
+                />
+              </div>
+              <p className="goal-note">这里按“本月最后一条持仓 - 本月第一条持仓”计算当前月盈利，默认月度目标是 $1,000。</p>
+            </div>
+
+            <div className="panel-divider" />
+
+            <div className="panel-header compact">
+              <div>
+                <p className="section-label">Composition</p>
+                <h3>最新持仓分布</h3>
+              </div>
+            </div>
+            <div className="source-list">
+              {summary?.sourceBreakdown.map((item) => (
+                <div key={item.source} className="source-row">
+                  <span>{getSourceLabel(item.source)}</span>
+                  <strong>{formatCurrency(item.amountUsd)}</strong>
+                </div>
+              ))}
+              {summary?.sourceBreakdown.length === 0 ? <p className="empty-state">还没有可展示的持仓分布。</p> : null}
+            </div>
+
+            <div className="panel-divider" />
+
+            <div className="panel-header compact">
+              <div>
+                <p className="section-label">Recent</p>
+                <h3>最近记录</h3>
               </div>
             </div>
             <div className="recent-list">
@@ -440,103 +525,108 @@ function App() {
                     <strong>{dayjs(entry.entryDate).format('M月D日')}</strong>
                     <span>{getSourceLabel(entry.source)}</span>
                   </div>
-                  <strong className={entry.amountUsd >= 0 ? 'profit-text' : 'loss-text'}>
-                    {formatSignedCurrency(entry.amountUsd)}
-                  </strong>
+                  <strong>{formatCurrency(entry.amountUsd)}</strong>
                 </div>
               ))}
               {summaryData?.recentEntries.length === 0 ? <p className="empty-state">这个月还没有记录。</p> : null}
             </div>
           </div>
-            </section>
-          </>
-        ) : (
-          <section className="dashboard-stack goals-view">
-            <div className="goals-page-title">
-              <p className="section-label">Target Configuration</p>
-              <h2>收益目标</h2>
-            </div>
+        </section>
 
-            <div className="panel side-panel app-panel">
-              <div className="panel-header compact app-panel-header">
-                <div>
-                  <p className="section-label">目标配置</p>
-                  <h2>进度设置</h2>
-                </div>
-                <button type="button" className="primary-save-button" onClick={saveGoals} disabled={saving}>
-                  <Save size={18} />
-                  <span>保存修改</span>
-                </button>
-              </div>
-              <div className="goal-stack">
-                <ProgressCard
-                  label="年度目标"
-                  progress={summary?.yearProgress ?? 0}
-                  currentValue={summary?.yearTotal ?? 0}
-                  inputValue={goalDraft.annualTargetUsd}
-                  onChange={(value) => setGoalDraft((current) => ({ ...current, annualTargetUsd: value }))}
-                />
-                <ProgressCard
-                  label="月度目标"
-                  progress={summary?.monthProgress ?? 0}
-                  currentValue={summary?.monthTotal ?? 0}
-                  inputValue={goalDraft.monthlyTargetUsd}
-                  onChange={(value) => setGoalDraft((current) => ({ ...current, monthlyTargetUsd: value }))}
-                />
-              </div>
+        <section className="panel calendar-panel">
+          <div className="panel-header">
+            <div>
+              <p className="section-label">Calendar</p>
+              <h3>持仓日历 (USD)</h3>
             </div>
+            <span className="calendar-month-label">{dayjs(`${selectedMonth}-01`).format('MMM YYYY')}</span>
+            <div className="month-controls">
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => {
+                  setLoading(true)
+                  setSelectedMonth(dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM'))
+                }}
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => {
+                  setLoading(true)
+                  setSelectedMonth(dayjs(`${selectedMonth}-01`).add(1, 'month').format('YYYY-MM'))
+                }}
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
 
-            <div className="panel side-panel app-panel">
-              <div className="panel-header compact app-panel-header">
-                <div>
-                  <p className="section-label">来源分布</p>
-                  <h2>本月贡献</h2>
-                </div>
-              </div>
-              <div className="source-list">
-                {summary?.sourceBreakdown.map((item) => (
-                  <div key={item.source} className="source-row">
-                    <span className="source-name"><Wallet size={16} />{getSourceLabel(item.source)}</span>
-                    <strong className={item.amountUsd >= 0 ? 'profit-text' : 'loss-text'}>
-                      {formatSignedCurrency(item.amountUsd)}
-                    </strong>
-                  </div>
-                ))}
-                {summary?.sourceBreakdown.length === 0 ? <p className="empty-state">本月还没有记录。</p> : null}
-              </div>
-            </div>
+          <div className="weekday-row">
+            {weekdayLabels.map((label) => (
+              <span key={label}>{label}</span>
+            ))}
+          </div>
 
-            <div className="panel side-panel app-panel">
-              <div className="panel-header compact app-panel-header">
-                <div>
-                  <p className="section-label">最近记录</p>
-                  <h2>本月最新</h2>
-                </div>
-              </div>
-              <div className="recent-list">
-                {summaryData?.recentEntries.map((entry) => (
-                  <div key={entry.id} className="recent-row">
-                    <div>
-                      <strong>{dayjs(entry.entryDate).format('M月D日')}</strong>
-                      <span>{getSourceLabel(entry.source)}</span>
-                    </div>
-                    <strong className={entry.amountUsd >= 0 ? 'profit-text' : 'loss-text'}>
-                      {formatSignedCurrency(entry.amountUsd)}
-                    </strong>
-                  </div>
-                ))}
-                {summaryData?.recentEntries.length === 0 ? <p className="empty-state">这个月还没有记录。</p> : null}
-              </div>
-            </div>
-          </section>
-        )}
+          <div className="calendar-grid">
+            {calendarRows.flatMap((row, rowIndex) =>
+              row.map((day, columnIndex) => {
+                if (!day) {
+                  return <div key={`empty-${rowIndex}-${columnIndex}`} className="calendar-blank" />
+                }
+
+                const ratio =
+                  day.entryCount > 0 && calendarRange.max !== calendarRange.min
+                    ? (day.amountUsd - calendarRange.min) / (calendarRange.max - calendarRange.min)
+                    : 0
+                const tone =
+                  day.entryCount === 0
+                    ? day.marketState === 'holiday'
+                      ? 'holiday'
+                      : day.marketState === 'weekend'
+                        ? 'weekend'
+                        : 'empty'
+                    : ratio > 0.8
+                      ? 'value-5'
+                      : ratio > 0.6
+                        ? 'value-4'
+                        : ratio > 0.35
+                          ? 'value-3'
+                          : ratio > 0.15
+                            ? 'value-2'
+                            : 'value-1'
+
+                return (
+                  <button
+                    key={day.date}
+                    type="button"
+                    className={`calendar-cell ${tone} ${selectedDate === day.date ? 'selected' : ''}`}
+                    onClick={() => setSelectedDate(day.date)}
+                    title={day.closedLabel ?? day.date}
+                  >
+                    <span className="day-number">{String(day.dayOfMonth).padStart(2, '0')}</span>
+                    {day.entryCount > 0 ? <div className="calendar-value">{formatCompactCurrency(day.amountUsd)}</div> : null}
+                    {day.entryCount === 0 && day.closedLabel ? <span className="empty-copy">{formatClosedTag(day.closedLabel)}</span> : null}
+                  </button>
+                )
+              }),
+            )}
+          </div>
+
+          <div className="calendar-hint">
+            <span>颜色越亮表示当天持仓总额越高。</span>
+            <span>点击任意一天可以编辑当日持仓记录。</span>
+          </div>
+        </section>
       </div>
 
       <aside className={`drawer ${selectedDate ? 'open' : ''}`}>
         <div className="drawer-header">
           <div>
             <p className="section-label">当日编辑</p>
-            <h2>{selectedDate ? dayjs(selectedDate).format('YYYY年M月D日') : '选择日期'}</h2>
+            <h3>{selectedDate ? dayjs(selectedDate).format('YYYY年M月D日') : '选择日期'}</h3>
           </div>
           <button type="button" className="icon-button" onClick={() => setSelectedDate(null)}>
             <ChevronRight size={18} />
@@ -546,6 +636,7 @@ function App() {
         <div className="drawer-body">
           {selectedDate ? (
             <>
+              <p className="drawer-tip">同一天可以录入多个账户或来源，系统会自动汇总成当天持仓总金额。</p>
               {dayEntries.map((entry, index) => (
                 <div key={entry.id ?? `draft-${index}`} className="entry-card">
                   <div className="entry-card-header">
@@ -553,7 +644,7 @@ function App() {
                     <span>{entry.id ? `记录 #${entry.id}` : '新建记录'}</span>
                   </div>
                   <label>
-                    <span>收益金额（USD）</span>
+                    <span>持仓金额（USD）</span>
                     <input
                       value={entry.amountUsd}
                       onChange={(event) => {
@@ -562,7 +653,7 @@ function App() {
                           current.map((item, itemIndex) => (itemIndex === index ? { ...item, amountUsd: value } : item)),
                         )
                       }}
-                      placeholder="例如 +30 或 -40"
+                      placeholder="例如 15230.50"
                     />
                   </label>
                   <label>
@@ -632,88 +723,32 @@ function App() {
               </button>
             </>
           ) : (
-            <p className="empty-state">点击日历中的某一天，直接编辑当天收益。</p>
+            <p className="empty-state">点击日历中的某一天，直接编辑当天持仓。</p>
           )}
         </div>
       </aside>
 
-      <nav className="bottom-nav">
-        <button
-          type="button"
-          className={`bottom-nav-item ${activeView === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveView('dashboard')}
-        >
-          <Grid2X2 size={23} />
-          <span>Dashboard</span>
-        </button>
-        <button
-          type="button"
-          className={`bottom-nav-item ${activeView === 'goals' ? 'active' : ''}`}
-          onClick={() => setActiveView('goals')}
-        >
-          <Power size={23} />
-          <span>Goals</span>
-        </button>
-      </nav>
-
-      {loading ? <div className="loading-scrim">正在加载收益日历...</div> : null}
+      {loading ? <div className="loading-scrim">正在加载持仓面板...</div> : null}
     </main>
   )
 }
 
-function StatBadge({
+function StatCard({
   icon,
   label,
-  tone,
   value,
 }: {
   icon: ReactNode
   label: string
-  tone: 'gain' | 'loss' | 'danger'
   value: string
 }) {
   return (
-    <div className={`stat-badge ${tone}`}>
+    <div className="stat-card">
+      <span className="stat-card-icon">{icon}</span>
       <div>
-        <span className="stat-badge-label">{label}</span>
-        <strong className="stat-badge-value">{value}</strong>
+        <span className="stat-card-label">{label}</span>
+        <strong className="stat-card-value">{value}</strong>
       </div>
-      <span className="stat-badge-icon">{icon}</span>
-    </div>
-  )
-}
-
-function ProgressCard({
-  label,
-  progress,
-  currentValue,
-  inputValue,
-  onChange,
-}: {
-  label: string
-  progress: number
-  currentValue: number
-  inputValue: string
-  onChange: (value: string) => void
-}) {
-  const boundedProgress = Math.max(Math.min(progress, 1), 0)
-
-  return (
-    <div className="progress-card">
-      <div className="progress-copy">
-        <div>
-          <span>{label}</span>
-          <strong>{formatSignedCurrency(currentValue)}</strong>
-        </div>
-        <span>{Math.round(boundedProgress * 100)}%</span>
-      </div>
-      <div className="progress-bar">
-        <div className="progress-fill" style={{ width: `${boundedProgress * 100}%` }} />
-      </div>
-      <label className="goal-input">
-        <span>目标值 (USD)</span>
-        <input value={inputValue} onChange={(event) => onChange(event.target.value)} />
-      </label>
     </div>
   )
 }

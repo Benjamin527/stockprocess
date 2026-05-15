@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 
-import type { GoalSettings, ProfitEntry, TeslaProgress } from './types.js'
+import type { GoalSettings, ProfitEntry, RangeKey, TeslaProgress } from './types.js'
 
 export type CalendarDay = {
   date: string
@@ -17,27 +17,38 @@ export type SummaryDay = {
   amountUsd: number
 }
 
+export type TimelinePoint = {
+  date: string
+  amountUsd: number
+}
+
+export type TimelineSummary = {
+  range: RangeKey
+  startDate: string
+  endDate: string
+  points: TimelinePoint[]
+  minValue: number
+  maxValue: number
+  latestValue: number
+  changeAmount: number
+  changePercent: number
+}
+
 export type MonthlySummary = {
   monthKey: string
-  monthTotal: number
-  yearTotal: number
-  monthProgress: number
-  yearProgress: number
+  latestValue: number
+  monthChange: number
+  targetProgress: number
+  monthlyTotal: number
+  monthlyTargetProgress: number
   calendarDays: CalendarDay[]
-  bestDay: SummaryDay | null
-  worstDay: SummaryDay | null
+  highestValueDay: SummaryDay | null
+  lowestValueDay: SummaryDay | null
+  latestValueDay: SummaryDay | null
   sourceBreakdown: Array<{ source: string; amountUsd: number }>
 }
 
-const TESLA_TARGET_USD = 50000
-
-export function buildTeslaProgress(yearTotal: number): TeslaProgress {
-  return {
-    currentUsd: yearTotal,
-    targetUsd: TESLA_TARGET_USD,
-    progress: yearTotal / TESLA_TARGET_USD,
-  }
-}
+const DEFAULT_PORTFOLIO_TARGET_USD = 50000
 
 function nthWeekdayOfMonth(year: number, monthIndex: number, weekday: number, nth: number) {
   const firstDay = new Date(year, monthIndex, 1)
@@ -113,83 +124,191 @@ function getNyseHolidayMap(targetYear: number) {
   return holidays
 }
 
-export function buildMonthlySummary(
+function aggregateDailyTotals(entries: ProfitEntry[]) {
+  const dailyTotals = new Map<string, { amountUsd: number; entryCount: number }>()
+
+  for (const entry of entries) {
+    const current = dailyTotals.get(entry.entryDate) ?? { amountUsd: 0, entryCount: 0 }
+    current.amountUsd += entry.amountUsd
+    current.entryCount += 1
+    dailyTotals.set(entry.entryDate, current)
+  }
+
+  return [...dailyTotals.entries()]
+    .map(([date, values]) => ({
+      date,
+      amountUsd: values.amountUsd,
+      entryCount: values.entryCount,
+    }))
+    .sort((left, right) => left.date.localeCompare(right.date))
+}
+
+function getWeekWindow(anchorDate: dayjs.Dayjs) {
+  const dayOffset = (anchorDate.day() + 6) % 7
+  const startDate = anchorDate.subtract(dayOffset, 'day')
+  const endDate = startDate.add(6, 'day')
+
+  return { startDate, endDate }
+}
+
+function getRangeWindow(endDate: dayjs.Dayjs, range: RangeKey) {
+  if (range === '1W') {
+    return getWeekWindow(endDate)
+  }
+  if (range === '1M') {
+    return {
+      startDate: endDate.subtract(1, 'month').add(1, 'day'),
+      endDate,
+    }
+  }
+  if (range === '6M') {
+    return {
+      startDate: endDate.subtract(6, 'month').add(1, 'day'),
+      endDate,
+    }
+  }
+  return {
+    startDate: endDate.subtract(1, 'year').add(1, 'day'),
+    endDate,
+  }
+}
+
+export function buildPortfolioTargetProgress(
+  currentUsd: number,
+  targetUsd = DEFAULT_PORTFOLIO_TARGET_USD,
+): TeslaProgress {
+  return {
+    currentUsd,
+    targetUsd,
+    progress: targetUsd === 0 ? 0 : currentUsd / targetUsd,
+  }
+}
+
+export function buildTeslaProgress(yearTotal: number): TeslaProgress {
+  return buildPortfolioTargetProgress(yearTotal, DEFAULT_PORTFOLIO_TARGET_USD)
+}
+
+export function buildPortfolioSummary(
   entries: ProfitEntry[],
   goals: GoalSettings,
   monthKey: string,
 ): MonthlySummary {
   const monthStart = dayjs(`${monthKey}-01`)
   const monthEnd = monthStart.endOf('month')
-  const yearKey = String(goals.year)
   const holidays = getNyseHolidayMap(monthStart.year())
-
-  const yearEntries = entries.filter((entry) => entry.entryDate.startsWith(yearKey))
-  const monthEntries = yearEntries.filter((entry) => {
+  const monthEntries = entries.filter((entry) => {
     const date = dayjs(entry.entryDate)
     return !date.isBefore(monthStart, 'day') && !date.isAfter(monthEnd, 'day')
   })
-
-  const monthTotal = monthEntries.reduce((total, entry) => total + entry.amountUsd, 0)
-  const yearTotal = yearEntries.reduce((total, entry) => total + entry.amountUsd, 0)
-
-  const entryMap = new Map<string, { amountUsd: number; entryCount: number }>()
-  const sourceMap = new Map<string, number>()
-
-  for (const entry of monthEntries) {
-    const existing = entryMap.get(entry.entryDate) ?? { amountUsd: 0, entryCount: 0 }
-    existing.amountUsd += entry.amountUsd
-    existing.entryCount += 1
-    entryMap.set(entry.entryDate, existing)
-    sourceMap.set(entry.source, (sourceMap.get(entry.source) ?? 0) + entry.amountUsd)
-  }
+  const dailyTotals = aggregateDailyTotals(monthEntries)
+  const dailyMap = new Map(dailyTotals.map((day) => [day.date, day]))
 
   const calendarDays: CalendarDay[] = []
   for (let day = 1; day <= monthEnd.date(); day += 1) {
-    const date = monthStart.date(day).format('YYYY-MM-DD')
-    const entry = entryMap.get(date)
     const currentDate = monthStart.date(day)
+    const date = currentDate.format('YYYY-MM-DD')
+    const aggregate = dailyMap.get(date)
     const holidayLabel = holidays.get(date)
     const isWeekend = currentDate.day() === 0 || currentDate.day() === 6
+
     calendarDays.push({
       date,
       dayOfMonth: day,
-      amountUsd: entry?.amountUsd ?? 0,
-      entryCount: entry?.entryCount ?? 0,
+      amountUsd: aggregate?.amountUsd ?? 0,
+      entryCount: aggregate?.entryCount ?? 0,
       isCurrentMonth: true,
       marketState: holidayLabel ? 'holiday' : isWeekend ? 'weekend' : 'open',
       closedLabel: holidayLabel ?? (isWeekend ? '周末休市' : null),
     })
   }
 
-  const dailyTotals = calendarDays
-    .filter((day) => day.entryCount > 0)
-    .map((day) => ({ date: day.date, amountUsd: day.amountUsd }))
+  const latestValueDay = dailyTotals.at(-1)
+    ? { date: dailyTotals.at(-1)!.date, amountUsd: dailyTotals.at(-1)!.amountUsd }
+    : null
+  const firstValueDay = dailyTotals[0]
+    ? { date: dailyTotals[0].date, amountUsd: dailyTotals[0].amountUsd }
+    : null
+  const monthProfit =
+    latestValueDay && firstValueDay ? latestValueDay.amountUsd - firstValueDay.amountUsd : 0
 
-  const bestDay = dailyTotals.reduce<SummaryDay | null>((best, day) => {
-    if (!best || day.amountUsd > best.amountUsd) {
-      return day
+  const highestValueDay = dailyTotals.reduce<SummaryDay | null>((highest, day) => {
+    if (!highest || day.amountUsd > highest.amountUsd) {
+      return { date: day.date, amountUsd: day.amountUsd }
     }
-    return best
+    return highest
   }, null)
 
-  const worstDay = dailyTotals.reduce<SummaryDay | null>((worst, day) => {
-    if (!worst || day.amountUsd < worst.amountUsd) {
-      return day
+  const lowestValueDay = dailyTotals.reduce<SummaryDay | null>((lowest, day) => {
+    if (!lowest || day.amountUsd < lowest.amountUsd) {
+      return { date: day.date, amountUsd: day.amountUsd }
     }
-    return worst
+    return lowest
   }, null)
+
+  const latestDate = latestValueDay?.date
+  const sourceBreakdown = latestDate
+    ? monthEntries
+        .filter((entry) => entry.entryDate === latestDate)
+        .reduce((map, entry) => {
+          map.set(entry.source, (map.get(entry.source) ?? 0) + entry.amountUsd)
+          return map
+        }, new Map<string, number>())
+    : new Map<string, number>()
 
   return {
     monthKey,
-    monthTotal,
-    yearTotal,
-    monthProgress: goals.monthlyTargetUsd === 0 ? 0 : monthTotal / goals.monthlyTargetUsd,
-    yearProgress: goals.annualTargetUsd === 0 ? 0 : yearTotal / goals.annualTargetUsd,
+    latestValue: latestValueDay?.amountUsd ?? 0,
+    monthChange: monthProfit,
+    monthlyTotal: dailyTotals.reduce((total, day) => total + day.amountUsd, 0),
+    monthlyTargetProgress:
+      goals.monthlyTargetUsd === 0 ? 0 : monthProfit / goals.monthlyTargetUsd,
+    targetProgress:
+      goals.annualTargetUsd === 0
+        ? 0
+        : (latestValueDay?.amountUsd ?? 0) / goals.annualTargetUsd,
     calendarDays,
-    bestDay,
-    worstDay,
-    sourceBreakdown: [...sourceMap.entries()]
+    highestValueDay,
+    lowestValueDay,
+    latestValueDay,
+    sourceBreakdown: [...sourceBreakdown.entries()]
       .map(([source, amountUsd]) => ({ source, amountUsd }))
       .sort((left, right) => right.amountUsd - left.amountUsd),
+  }
+}
+
+export function buildPortfolioTimeline(
+  entries: ProfitEntry[],
+  range: RangeKey,
+  endDateInput: string,
+): TimelineSummary {
+  const anchorDate = dayjs(endDateInput)
+  const { startDate, endDate } = getRangeWindow(anchorDate, range)
+  const points = aggregateDailyTotals(
+    entries.filter((entry) => {
+      const current = dayjs(entry.entryDate)
+      return !current.isBefore(startDate, 'day') && !current.isAfter(endDate, 'day')
+    }),
+  ).map((point) => ({
+    date: point.date,
+    amountUsd: point.amountUsd,
+  }))
+
+  const latestValue = points.at(-1)?.amountUsd ?? 0
+  const firstValue = points[0]?.amountUsd ?? latestValue
+  const minValue = points.length > 0 ? Math.min(...points.map((point) => point.amountUsd)) : 0
+  const maxValue = points.length > 0 ? Math.max(...points.map((point) => point.amountUsd)) : 0
+  const changeAmount = latestValue - firstValue
+  const changePercent = firstValue === 0 ? 0 : changeAmount / firstValue
+
+  return {
+    range,
+    startDate: startDate.format('YYYY-MM-DD'),
+    endDate: endDate.format('YYYY-MM-DD'),
+    points,
+    minValue,
+    maxValue,
+    latestValue,
+    changeAmount,
+    changePercent,
   }
 }
