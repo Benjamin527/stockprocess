@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { requestJson, requestVoid } from './lib/api.js'
 import { buildTeslaProgress } from './lib/calendar.js'
 import type { MonthlySummary, TimelineSummary } from './lib/calendar'
 import type { GoalSettings, ProfitEntry, RangeKey } from './lib/types'
@@ -104,6 +105,18 @@ function emptyDraft(date: string): EditableEntry {
   }
 }
 
+function toEditableEntries(entries: ProfitEntry[], date: string): EditableEntry[] {
+  return entries.length > 0
+    ? entries.map((entry) => ({
+        id: entry.id,
+        entryDate: entry.entryDate,
+        amountUsd: String(entry.amountUsd),
+        source: entry.source,
+        note: entry.note,
+      }))
+    : [emptyDraft(date)]
+}
+
 function buildChartPath(points: Array<{ x: number; y: number }>) {
   if (points.length === 0) {
     return ''
@@ -134,46 +147,72 @@ function App() {
   const [targetDraft, setTargetDraft] = useState('50000')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  function applySummaryData(data: SummaryResponse) {
+    setSummaryData(data)
+    setTargetDraft(String(data.goals.annualTargetUsd))
+  }
+
+  async function fetchSummary(month: string) {
+    return requestJson<SummaryResponse>(`/api/summary?month=${month}`)
+  }
+
+  async function fetchDay(date: string) {
+    return requestJson<DayResponse>(`/api/day/${date}`)
+  }
 
   async function loadSummary(month: string) {
     setLoading(true)
-    const response = await fetch(`/api/summary?month=${month}`)
-    const data = (await response.json()) as SummaryResponse
-    setSummaryData(data)
-    setTargetDraft(String(data.goals.annualTargetUsd))
-    setLoading(false)
+    setErrorMessage(null)
+
+    try {
+      const data = await fetchSummary(month)
+      applySummaryData(data)
+    } catch {
+      setErrorMessage('加载失败，请稍后重试。')
+      throw new Error('Failed to load summary')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function loadDay(date: string) {
-    const response = await fetch(`/api/day/${date}`)
-    const data = (await response.json()) as DayResponse
-    setDayEntries(
-      data.entries.length > 0
-        ? data.entries.map((entry) => ({
-            id: entry.id,
-            entryDate: entry.entryDate,
-            amountUsd: String(entry.amountUsd),
-            source: entry.source,
-            note: entry.note,
-          }))
-        : [emptyDraft(date)],
-    )
+    setErrorMessage(null)
+
+    try {
+      const data = await fetchDay(date)
+      setDayEntries(toEditableEntries(data.entries, date))
+    } catch {
+      setErrorMessage('加载失败，请稍后重试。')
+      throw new Error('Failed to load day entries')
+    }
   }
 
   useEffect(() => {
     let cancelled = false
 
     async function run() {
-      const response = await fetch(`/api/summary?month=${selectedMonth}`)
-      const data = (await response.json()) as SummaryResponse
+      setLoading(true)
+      setErrorMessage(null)
 
-      if (cancelled) {
-        return
+      try {
+        const data = await fetchSummary(selectedMonth)
+
+        if (cancelled) {
+          return
+        }
+
+        applySummaryData(data)
+      } catch {
+        if (!cancelled) {
+          setErrorMessage('加载失败，请稍后重试。')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
-
-      setSummaryData(data)
-      setTargetDraft(String(data.goals.annualTargetUsd))
-      setLoading(false)
     }
 
     void run()
@@ -192,24 +231,21 @@ function App() {
     let cancelled = false
 
     async function run() {
-      const response = await fetch(`/api/day/${currentDate}`)
-      const data = (await response.json()) as DayResponse
+      setErrorMessage(null)
 
-      if (cancelled) {
-        return
+      try {
+        const data = await fetchDay(currentDate)
+
+        if (cancelled) {
+          return
+        }
+
+        setDayEntries(toEditableEntries(data.entries, currentDate))
+      } catch {
+        if (!cancelled) {
+          setErrorMessage('加载失败，请稍后重试。')
+        }
       }
-
-      setDayEntries(
-        data.entries.length > 0
-          ? data.entries.map((entry) => ({
-              id: entry.id,
-              entryDate: entry.entryDate,
-              amountUsd: String(entry.amountUsd),
-              source: entry.source,
-              note: entry.note,
-            }))
-          : [emptyDraft(currentDate)],
-      )
     }
 
     void run()
@@ -222,6 +258,8 @@ function App() {
   const summary = summaryData?.summary
   const timeline = summaryData?.timeline[selectedRange] ?? null
   const teslaProgress = buildTeslaProgress(summary?.latestValue ?? 0)
+  const activeRecordDays = summary?.calendarDays.filter((day) => day.entryCount > 0).length ?? 0
+  const latestRecordDate = summary?.latestValueDay?.date ?? null
 
   const calendarRows = useMemo(() => {
     if (!summaryData) {
@@ -289,20 +327,28 @@ function App() {
 
   async function saveTarget() {
     setSaving(true)
-    await fetch(`/api/goals/${selectedMonth.slice(0, 4)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        annualTargetUsd: Number(targetDraft),
-        monthlyTargetUsd: summaryData?.goals.monthlyTargetUsd ?? 1000,
-      }),
-    })
-    await refreshCurrentView(selectedDate)
-    setSaving(false)
+    setErrorMessage(null)
+
+    try {
+      await requestVoid(`/api/goals/${selectedMonth.slice(0, 4)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          annualTargetUsd: Number(targetDraft),
+          monthlyTargetUsd: summaryData?.goals.monthlyTargetUsd ?? 1000,
+        }),
+      })
+      await refreshCurrentView(selectedDate)
+    } catch {
+      setErrorMessage('保存失败，请稍后重试。')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function saveEntry(entry: EditableEntry) {
     setSaving(true)
+    setErrorMessage(null)
     const payload = {
       entryDate: entry.entryDate,
       amountUsd: Number(entry.amountUsd),
@@ -310,29 +356,41 @@ function App() {
       note: entry.note,
     }
 
-    if (entry.id) {
-      await fetch(`/api/entries/${entry.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-    } else {
-      await fetch('/api/entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-    }
+    try {
+      if (entry.id) {
+        await requestVoid(`/api/entries/${entry.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      } else {
+        await requestJson<{ id: number }>('/api/entries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      }
 
-    await refreshCurrentView(entry.entryDate)
-    setSaving(false)
+      await refreshCurrentView(entry.entryDate)
+    } catch {
+      setErrorMessage('保存失败，请稍后重试。')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function deleteEntry(id: number, date: string) {
     setSaving(true)
-    await fetch(`/api/entries/${id}`, { method: 'DELETE' })
-    await refreshCurrentView(date)
-    setSaving(false)
+    setErrorMessage(null)
+
+    try {
+      await requestVoid(`/api/entries/${id}`, { method: 'DELETE' })
+      await refreshCurrentView(date)
+    } catch {
+      setErrorMessage('删除失败，请稍后重试。')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -342,8 +400,12 @@ function App() {
           <Activity size={20} />
           <div>
             <p>Portfolio Pulse</p>
-            <h1>持仓面板</h1>
+            <h1>Mission Control</h1>
           </div>
+        </div>
+        <div className="top-bar-meta">
+          <span>{dayjs(`${selectedMonth}-01`).format('MMMM YYYY')}</span>
+          <span>{activeRecordDays} Days Logged</span>
         </div>
         <button type="button" className="target-chip" onClick={saveTarget} disabled={saving}>
           <Target size={16} />
@@ -351,73 +413,107 @@ function App() {
         </button>
       </header>
 
+      {errorMessage ? <div className="status-banner">{errorMessage}</div> : null}
+
       <div className="app-frame">
-        <section className="tesla-card">
-          <div className="tesla-copy">
-            <p className="section-label">TSLA Target Status</p>
-            <h2>{Math.round(Math.max(0, teslaProgress.progress) * 100)}%</h2>
-            <p>距离 Tesla 目标还差 {formatCurrency(Math.max(0, teslaProgress.targetUsd - teslaProgress.currentUsd))}</p>
-          </div>
-          <div className="tesla-meter">
-            <div className="tesla-meter-header">
-              <span>当前持仓</span>
-              <strong>{formatCurrency(teslaProgress.currentUsd)}</strong>
+        <section className="hero-stage">
+          <div className="hero-stage-backdrop" />
+          <div className="hero-stage-overlay">
+            <div className="hero-stage-copy">
+              <div className="hero-eyebrow-row">
+                <p className="section-label">Tesla Portfolio Mission</p>
+                <span className="mission-chip">{dayjs(`${selectedMonth}-01`).format('YYYY / MM')}</span>
+              </div>
+              <h2 className="hero-title">TESLA HOLDING MISSION CONTROL</h2>
+              <p className="hero-summary">
+                以 SpaceX 式任务编排查看你的 TSLA 持仓轨迹、月度进展和每日记录。信息保持克制，重点只留给关键数字与时间线。
+              </p>
+              <div className="hero-metrics">
+                <div className="hero-metric">
+                  <span className="hero-metric-label">Portfolio Value</span>
+                  <strong>{formatCurrency(summary?.latestValue ?? 0)}</strong>
+                </div>
+                <div className="hero-metric">
+                  <span className="hero-metric-label">Month Delta</span>
+                  <strong className={(summary?.monthChange ?? 0) >= 0 ? 'up-text' : 'down-text'}>
+                    {formatDelta(summary?.monthChange ?? 0)}
+                  </strong>
+                </div>
+                <div className="hero-metric">
+                  <span className="hero-metric-label">Mission Progress</span>
+                  <strong>{Math.round(Math.max(0, teslaProgress.progress) * 100)}%</strong>
+                </div>
+              </div>
+              <div className="hero-actions">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => latestRecordDate && setSelectedDate(latestRecordDate)}
+                  disabled={!latestRecordDate}
+                >
+                  <CalendarDays size={16} />
+                  打开最新记录
+                </button>
+                <span className="hero-note">
+                  距离年度目标还差 {formatCurrency(Math.max(0, teslaProgress.targetUsd - teslaProgress.currentUsd))}
+                </span>
+              </div>
             </div>
-            <div className="hero-progress-bar">
-              <span
-                className="hero-progress-fill"
-                style={{ width: `${Math.max(0, Math.min(teslaProgress.progress, 1)) * 100}%` }}
-              />
-            </div>
-            <div className="tesla-range">
-              <span>$0</span>
-              <span>{formatCurrency(teslaProgress.targetUsd)}</span>
+
+            <div className="hero-stage-aside">
+              <div className="mission-card">
+                <p className="section-label">Annual Mission</p>
+                <div className="mission-value-row">
+                  <strong>{formatCurrency(teslaProgress.currentUsd)}</strong>
+                  <span>{formatCurrency(teslaProgress.targetUsd)}</span>
+                </div>
+                <div className="hero-progress-bar">
+                  <span
+                    className="hero-progress-fill"
+                    style={{ width: `${Math.max(0, Math.min(teslaProgress.progress, 1)) * 100}%` }}
+                  />
+                </div>
+                <label className="target-editor">
+                  <span>Annual Target (USD)</span>
+                  <input value={targetDraft} onChange={(event) => setTargetDraft(event.target.value)} />
+                </label>
+              </div>
+
+              <div className="mission-card mission-card-muted">
+                <p className="section-label">Monthly Objective</p>
+                <div className="mission-list">
+                  <div className="mission-list-row">
+                    <span>月度目标金额</span>
+                    <strong>{formatCurrency(summaryData?.goals.monthlyTargetUsd ?? 1000)}</strong>
+                  </div>
+                  <div className="mission-list-row">
+                    <span>当前月盈利</span>
+                    <strong>{formatCurrency(summary?.monthChange ?? 0)}</strong>
+                  </div>
+                  <div className="mission-list-row">
+                    <span>记录天数</span>
+                    <strong>{activeRecordDays}</strong>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="hero-card">
-          <div className="hero-copy">
-            <p className="section-label">Portfolio Value</p>
-            <h2>{formatCurrency(summary?.latestValue ?? 0)}</h2>
-            <div className={`hero-delta ${(summary?.monthChange ?? 0) >= 0 ? 'up' : 'down'}`}>
-              {(summary?.monthChange ?? 0) >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-              <span>本月变化 {formatDelta(summary?.monthChange ?? 0)}</span>
-            </div>
-          </div>
-
-          <div className="hero-progress">
-            <div className="hero-progress-header">
-              <span>持仓目标进度</span>
-              <strong>{Math.round((summary?.targetProgress ?? 0) * 100)}%</strong>
-            </div>
-            <div className="hero-progress-bar">
-              <span
-                className="hero-progress-fill"
-                style={{ width: `${Math.max(0, Math.min(summary?.targetProgress ?? 0, 1)) * 100}%` }}
-              />
-            </div>
-            <label className="target-editor">
-              <span>目标金额 (USD)</span>
-              <input value={targetDraft} onChange={(event) => setTargetDraft(event.target.value)} />
-            </label>
-          </div>
-        </section>
-
-        <section className="stat-grid">
+        <section className="stat-grid" aria-label="portfolio highlights">
           <StatCard icon={<Wallet size={18} />} label="当前持仓" value={formatCompactCurrency(summary?.latestValue ?? 0)} />
           <StatCard icon={<Target size={18} />} label="月度目标" value={formatPercent(summary?.monthlyTargetProgress ?? 0)} />
           <StatCard icon={<TrendingUp size={18} />} label="本月最高" value={formatCompactCurrency(summary?.highestValueDay?.amountUsd ?? 0)} />
           <StatCard icon={<TrendingDown size={18} />} label="本月盈利" value={formatCompactCurrency(summary?.monthChange ?? 0)} />
-          <StatCard icon={<CalendarDays size={18} />} label="记录天数" value={String(summary?.calendarDays.filter((day) => day.entryCount > 0).length ?? 0)} />
+          <StatCard icon={<CalendarDays size={18} />} label="记录天数" value={String(activeRecordDays)} />
         </section>
 
         <section className="content-grid">
-          <div className="panel chart-panel">
+          <div className="section-panel chart-panel">
             <div className="panel-header">
               <div>
-                <p className="section-label">Curve</p>
-                <h3>持仓金额曲线</h3>
+                <p className="section-label">Flight Path</p>
+                <h3>持仓轨迹</h3>
               </div>
               <div className="chart-summary">
                 <strong>{formatCurrency(timeline?.latestValue ?? 0)}</strong>
@@ -432,14 +528,14 @@ function App() {
                 <svg viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`} className="chart-svg" role="img" aria-label="持仓金额变化曲线">
                   <defs>
                     <linearGradient id="curve-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(79, 209, 197, 0.5)" />
-                      <stop offset="100%" stopColor="rgba(79, 209, 197, 0.02)" />
+                      <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
+                      <stop offset="100%" stopColor="rgba(255,255,255,0.01)" />
                     </linearGradient>
                   </defs>
                   <path d={chartGeometry.areaPath} fill="url(#curve-fill)" />
-                  <path d={chartGeometry.linePath} fill="none" stroke="#55f0d7" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={chartGeometry.linePath} fill="none" stroke="#f5f5f5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                   {chartGeometry.points.map((point) => (
-                    <circle key={point.date} cx={point.x} cy={point.y} r="4.5" fill="#091215" stroke="#8ffff0" strokeWidth="2" />
+                    <circle key={point.date} cx={point.x} cy={point.y} r="4.5" fill="#000" stroke="#f5f5f5" strokeWidth="1.5" />
                   ))}
                 </svg>
               ) : (
@@ -467,77 +563,69 @@ function App() {
             </div>
           </div>
 
-          <div className="panel side-panel">
-            <div className="panel-header compact">
-              <div>
-                <p className="section-label">Targets</p>
-                <h3>月度目标</h3>
-              </div>
-            </div>
-            <div className="goal-card">
-              <div className="goal-card-row">
-                <span>月度目标金额</span>
-                <strong>{formatCurrency(summaryData?.goals.monthlyTargetUsd ?? 1000)}</strong>
-              </div>
-              <div className="goal-card-row">
-                <span>当前月盈利</span>
-                <strong>{formatCurrency(summary?.monthChange ?? 0)}</strong>
-              </div>
-              <div className="hero-progress-bar">
-                <span
-                  className="hero-progress-fill"
-                  style={{ width: `${Math.max(0, Math.min(summary?.monthlyTargetProgress ?? 0, 1)) * 100}%` }}
-                />
-              </div>
-              <p className="goal-note">这里按“本月最后一条持仓 - 本月第一条持仓”计算当前月盈利，默认月度目标是 $1,000。</p>
-            </div>
-
-            <div className="panel-divider" />
-
-            <div className="panel-header compact">
-              <div>
-                <p className="section-label">Composition</p>
-                <h3>最新持仓分布</h3>
-              </div>
-            </div>
-            <div className="source-list">
-              {summary?.sourceBreakdown.map((item) => (
-                <div key={item.source} className="source-row">
-                  <span>{getSourceLabel(item.source)}</span>
-                  <strong>{formatCurrency(item.amountUsd)}</strong>
+          <div className="section-panel side-panel">
+            <div className="brief-block">
+              <div className="panel-header compact">
+                <div>
+                  <p className="section-label">Mission Rules</p>
+                  <h3>计算规则</h3>
                 </div>
-              ))}
-              {summary?.sourceBreakdown.length === 0 ? <p className="empty-state">还没有可展示的持仓分布。</p> : null}
+              </div>
+              <p className="brief-copy">
+                本月盈利按“本月最后一条持仓减去本月第一条持仓”计算。目标进度保持线性表达，不加入额外视觉噪音。
+              </p>
             </div>
 
             <div className="panel-divider" />
 
-            <div className="panel-header compact">
-              <div>
-                <p className="section-label">Recent</p>
-                <h3>最近记录</h3>
+            <div className="brief-block">
+              <div className="panel-header compact">
+                <div>
+                  <p className="section-label">Composition</p>
+                  <h3>最新持仓分布</h3>
+                </div>
               </div>
-            </div>
-            <div className="recent-list">
-              {summaryData?.recentEntries.map((entry) => (
-                <div key={entry.id} className="recent-row">
-                  <div>
-                    <strong>{dayjs(entry.entryDate).format('M月D日')}</strong>
-                    <span>{getSourceLabel(entry.source)}</span>
+              <div className="source-list">
+                {summary?.sourceBreakdown.map((item) => (
+                  <div key={item.source} className="source-row">
+                    <span>{getSourceLabel(item.source)}</span>
+                    <strong>{formatCurrency(item.amountUsd)}</strong>
                   </div>
-                  <strong>{formatCurrency(entry.amountUsd)}</strong>
+                ))}
+                {summary?.sourceBreakdown.length === 0 ? <p className="empty-state">还没有可展示的持仓分布。</p> : null}
+              </div>
+            </div>
+
+            <div className="panel-divider" />
+
+            <div className="brief-block">
+              <div className="panel-header compact">
+                <div>
+                  <p className="section-label">Recent Logs</p>
+                  <h3>最近记录</h3>
                 </div>
-              ))}
-              {summaryData?.recentEntries.length === 0 ? <p className="empty-state">这个月还没有记录。</p> : null}
+              </div>
+              <div className="recent-list">
+                {summaryData?.recentEntries.map((entry) => (
+                  <div key={entry.id} className="recent-row">
+                    <div>
+                      <strong>{dayjs(entry.entryDate).format('M月D日')}</strong>
+                      <span>{getSourceLabel(entry.source)}</span>
+                    </div>
+                    <strong>{formatCurrency(entry.amountUsd)}</strong>
+                  </div>
+                ))}
+                {summaryData?.recentEntries.length === 0 ? <p className="empty-state">这个月还没有记录。</p> : null}
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="panel calendar-panel">
+        <section className="section-panel calendar-panel">
           <div className="panel-header">
             <div>
-              <p className="section-label">Calendar</p>
-              <h3>持仓日历 (USD)</h3>
+              <p className="section-label">Launch Calendar</p>
+              <h3>持仓日历</h3>
             </div>
             <span className="calendar-month-label">{dayjs(`${selectedMonth}-01`).format('MMM YYYY')}</span>
             <div className="month-controls">
@@ -616,8 +704,8 @@ function App() {
           </div>
 
           <div className="calendar-hint">
-            <span>颜色越亮表示当天持仓总额越高。</span>
-            <span>点击任意一天可以编辑当日持仓记录。</span>
+            <span>亮度越高，代表当天记录的持仓总额越高。</span>
+            <span>点击任意一天可以直接打开记录抽屉。</span>
           </div>
         </section>
       </div>
@@ -625,7 +713,7 @@ function App() {
       <aside className={`drawer ${selectedDate ? 'open' : ''}`}>
         <div className="drawer-header">
           <div>
-            <p className="section-label">当日编辑</p>
+            <p className="section-label">Daily Log</p>
             <h3>{selectedDate ? dayjs(selectedDate).format('YYYY年M月D日') : '选择日期'}</h3>
           </div>
           <button type="button" className="icon-button" onClick={() => setSelectedDate(null)}>
@@ -745,10 +833,8 @@ function StatCard({
   return (
     <div className="stat-card">
       <span className="stat-card-icon">{icon}</span>
-      <div>
-        <span className="stat-card-label">{label}</span>
-        <strong className="stat-card-value">{value}</strong>
-      </div>
+      <span className="stat-card-label">{label}</span>
+      <strong className="stat-card-value">{value}</strong>
     </div>
   )
 }
