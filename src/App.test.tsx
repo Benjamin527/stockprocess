@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
@@ -133,5 +133,57 @@ describe('App', () => {
     await waitFor(() => {
       expect(saveButton).toBeEnabled()
     })
+  })
+
+  it('switches between dashboard and goals tabs', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(summaryResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    render(<App />)
+
+    expect(await screen.findByText('持仓轨迹')).toBeInTheDocument()
+    expect(screen.queryByText('计算规则')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Goals' }))
+
+    expect(await screen.findByText('计算规则')).toBeInTheDocument()
+    expect(screen.getByText('最新持仓分布')).toBeInTheDocument()
+    expect(screen.getByText('最近记录')).toBeInTheDocument()
+    expect(screen.queryByText('持仓轨迹')).not.toBeInTheDocument()
+  })
+
+  it('shows the point price when hovering the chart point', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(summaryResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    render(<App />)
+
+    const chartInteractionLayer = await screen.findByLabelText('持仓金额变化曲线交互区')
+    Object.defineProperty(chartInteractionLayer, 'getBoundingClientRect', {
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 640,
+        height: 320,
+        right: 640,
+        bottom: 320,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    fireEvent.mouseMove(chartInteractionLayer, { clientX: 400 })
+
+    const tooltip = await screen.findByLabelText('Chart point details')
+    expect(within(tooltip).getByText('$5,832.00')).toBeInTheDocument()
+    expect(within(tooltip).getByText('2026-05-14')).toBeInTheDocument()
   })
 })

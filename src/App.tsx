@@ -42,6 +42,8 @@ type EditableEntry = {
   note: string
 }
 
+type ViewTab = 'dashboard' | 'goals'
+
 const weekdayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 const rangeOptions: RangeKey[] = ['1W', '1M', '6M', '1Y']
 const sourceOptions = [
@@ -148,6 +150,8 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<ViewTab>('dashboard')
+  const [activeChartPointIndex, setActiveChartPointIndex] = useState<number | null>(null)
 
   function applySummaryData(data: SummaryResponse) {
     setSummaryData(data)
@@ -318,6 +322,35 @@ function App() {
     }
   }, [timeline])
 
+  const activeChartPoint =
+    chartGeometry && activeChartPointIndex !== null ? chartGeometry.points[activeChartPointIndex] ?? null : null
+
+  useEffect(() => {
+    setActiveChartPointIndex(null)
+  }, [selectedRange, activeTab])
+
+  function updateActiveChartPoint(clientX: number, currentTarget: HTMLDivElement) {
+    if (!chartGeometry || chartGeometry.points.length === 0) {
+      return
+    }
+
+    const rect = currentTarget.getBoundingClientRect()
+    const relativeX = ((clientX - rect.left) / rect.width) * chartGeometry.width
+
+    let nearestIndex = 0
+    let nearestDistance = Number.POSITIVE_INFINITY
+
+    for (const [index, point] of chartGeometry.points.entries()) {
+      const distance = Math.abs(point.x - relativeX)
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nearestIndex = index
+      }
+    }
+
+    setActiveChartPointIndex(nearestIndex)
+  }
+
   async function refreshCurrentView(dateToReload?: string | null) {
     await loadSummary(selectedMonth)
     if (dateToReload) {
@@ -425,9 +458,6 @@ function App() {
                 <span className="mission-chip">{dayjs(`${selectedMonth}-01`).format('YYYY / MM')}</span>
               </div>
               <h2 className="hero-title">TESLA HOLDING MISSION CONTROL</h2>
-              <p className="hero-summary">
-                以 SpaceX 式任务编排查看你的 TSLA 持仓轨迹、月度进展和每日记录。信息保持克制，重点只留给关键数字与时间线。
-              </p>
               <div className="hero-metrics">
                 <div className="hero-metric">
                   <span className="hero-metric-label">Portfolio Value</span>
@@ -500,215 +530,291 @@ function App() {
           </div>
         </section>
 
-        <section className="stat-grid" aria-label="portfolio highlights">
-          <StatCard icon={<Wallet size={18} />} label="当前持仓" value={formatCompactCurrency(summary?.latestValue ?? 0)} />
-          <StatCard icon={<Target size={18} />} label="月度目标" value={formatPercent(summary?.monthlyTargetProgress ?? 0)} />
-          <StatCard icon={<TrendingUp size={18} />} label="本月最高" value={formatCompactCurrency(summary?.highestValueDay?.amountUsd ?? 0)} />
-          <StatCard icon={<TrendingDown size={18} />} label="本月盈利" value={formatCompactCurrency(summary?.monthChange ?? 0)} />
-          <StatCard icon={<CalendarDays size={18} />} label="记录天数" value={String(activeRecordDays)} />
-        </section>
+        {activeTab === 'dashboard' ? (
+          <>
+            <section className="stat-grid" aria-label="portfolio highlights">
+              <StatCard icon={<Wallet size={18} />} label="当前持仓" value={formatCompactCurrency(summary?.latestValue ?? 0)} />
+              <StatCard icon={<Target size={18} />} label="月度目标" value={formatPercent(summary?.monthlyTargetProgress ?? 0)} />
+              <StatCard icon={<TrendingUp size={18} />} label="本月最高" value={formatCompactCurrency(summary?.highestValueDay?.amountUsd ?? 0)} />
+              <StatCard icon={<TrendingDown size={18} />} label="本月盈利" value={formatCompactCurrency(summary?.monthChange ?? 0)} />
+              <StatCard icon={<CalendarDays size={18} />} label="记录天数" value={String(activeRecordDays)} />
+            </section>
 
-        <section className="content-grid">
-          <div className="section-panel chart-panel">
-            <div className="panel-header">
-              <div>
-                <p className="section-label">Flight Path</p>
-                <h3>持仓轨迹</h3>
-              </div>
-              <div className="chart-summary">
-                <strong>{formatCurrency(timeline?.latestValue ?? 0)}</strong>
-                <span className={(timeline?.changeAmount ?? 0) >= 0 ? 'up-text' : 'down-text'}>
-                  {formatDelta(timeline?.changeAmount ?? 0)} / {formatPercent(timeline?.changePercent ?? 0)}
-                </span>
-              </div>
-            </div>
-
-            <div className="chart-stage">
-              {chartGeometry ? (
-                <svg viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`} className="chart-svg" role="img" aria-label="持仓金额变化曲线">
-                  <defs>
-                    <linearGradient id="curve-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
-                      <stop offset="100%" stopColor="rgba(255,255,255,0.01)" />
-                    </linearGradient>
-                  </defs>
-                  <path d={chartGeometry.areaPath} fill="url(#curve-fill)" />
-                  <path d={chartGeometry.linePath} fill="none" stroke="#f5f5f5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                  {chartGeometry.points.map((point) => (
-                    <circle key={point.date} cx={point.x} cy={point.y} r="4.5" fill="#000" stroke="#f5f5f5" strokeWidth="1.5" />
-                  ))}
-                </svg>
-              ) : (
-                <div className="chart-empty">这个区间还没有持仓记录，先在日历里补一天看看。</div>
-              )}
-            </div>
-
-            <div className="chart-footer">
-              <div className="range-tabs">
-                {rangeOptions.map((range) => (
-                  <button
-                    key={range}
-                    type="button"
-                    className={`range-tab ${selectedRange === range ? 'active' : ''}`}
-                    onClick={() => setSelectedRange(range)}
-                  >
-                    {range}
-                  </button>
-                ))}
-              </div>
-              <div className="chart-dates">
-                <span>{timeline?.startDate ?? '--'}</span>
-                <span>{timeline?.endDate ?? '--'}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="section-panel side-panel">
-            <div className="brief-block">
-              <div className="panel-header compact">
-                <div>
-                  <p className="section-label">Mission Rules</p>
-                  <h3>计算规则</h3>
-                </div>
-              </div>
-              <p className="brief-copy">
-                本月盈利按“本月最后一条持仓减去本月第一条持仓”计算。目标进度保持线性表达，不加入额外视觉噪音。
-              </p>
-            </div>
-
-            <div className="panel-divider" />
-
-            <div className="brief-block">
-              <div className="panel-header compact">
-                <div>
-                  <p className="section-label">Composition</p>
-                  <h3>最新持仓分布</h3>
-                </div>
-              </div>
-              <div className="source-list">
-                {summary?.sourceBreakdown.map((item) => (
-                  <div key={item.source} className="source-row">
-                    <span>{getSourceLabel(item.source)}</span>
-                    <strong>{formatCurrency(item.amountUsd)}</strong>
+            <section className="content-grid dashboard-grid">
+              <div className="section-panel chart-panel">
+                <div className="panel-header">
+                  <div>
+                    <p className="section-label">Flight Path</p>
+                    <h3>持仓轨迹</h3>
                   </div>
+                  <div className="chart-summary">
+                    <strong>{formatCurrency(timeline?.latestValue ?? 0)}</strong>
+                    <span className={(timeline?.changeAmount ?? 0) >= 0 ? 'up-text' : 'down-text'}>
+                      {formatDelta(timeline?.changeAmount ?? 0)} / {formatPercent(timeline?.changePercent ?? 0)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="chart-stage">
+                  {chartGeometry ? (
+                    <>
+                      <div
+                        className="chart-interaction-layer"
+                        aria-label="持仓金额变化曲线交互区"
+                        onMouseMove={(event) => updateActiveChartPoint(event.clientX, event.currentTarget)}
+                        onMouseLeave={() => setActiveChartPointIndex(null)}
+                        onTouchStart={(event) => updateActiveChartPoint(event.touches[0].clientX, event.currentTarget)}
+                        onTouchMove={(event) => updateActiveChartPoint(event.touches[0].clientX, event.currentTarget)}
+                      >
+                        <svg viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`} className="chart-svg" role="img" aria-label="持仓金额变化曲线">
+                          <defs>
+                            <linearGradient id="curve-fill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
+                              <stop offset="100%" stopColor="rgba(255,255,255,0.01)" />
+                            </linearGradient>
+                          </defs>
+                          <path d={chartGeometry.areaPath} fill="url(#curve-fill)" />
+                          <path d={chartGeometry.linePath} fill="none" stroke="#f5f5f5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                          {activeChartPoint ? (
+                            <line
+                              x1={activeChartPoint.x}
+                              y1={12}
+                              x2={activeChartPoint.x}
+                              y2={chartGeometry.height - 12}
+                              stroke="rgba(255,255,255,0.22)"
+                              strokeWidth="1"
+                              strokeDasharray="4 6"
+                            />
+                          ) : null}
+                          {chartGeometry.points.map((point, index) => (
+                            <g key={point.date}>
+                              <circle
+                                cx={point.x}
+                                cy={point.y}
+                                r={activeChartPointIndex === index ? '6' : '4.5'}
+                                fill="#000"
+                                stroke="#f5f5f5"
+                                strokeWidth="1.5"
+                              />
+                              <circle
+                                cx={point.x}
+                                cy={point.y}
+                                r="14"
+                                fill="transparent"
+                                onMouseEnter={() => setActiveChartPointIndex(index)}
+                                onFocus={() => setActiveChartPointIndex(index)}
+                              />
+                            </g>
+                          ))}
+                        </svg>
+
+                        {activeChartPoint ? (
+                          <div
+                            className="chart-tooltip"
+                            aria-label="Chart point details"
+                            style={{
+                              left: `clamp(72px, ${(activeChartPoint.x / chartGeometry.width) * 100}%, calc(100% - 72px))`,
+                              top: `${(activeChartPoint.y / chartGeometry.height) * 100}%`,
+                            }}
+                          >
+                            <strong>{formatCurrency(activeChartPoint.amountUsd)}</strong>
+                            <span>{activeChartPoint.date}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="chart-empty">这个区间还没有持仓记录，先在日历里补一天看看。</div>
+                  )}
+                </div>
+
+                <div className="chart-footer">
+                  <div className="range-tabs">
+                    {rangeOptions.map((range) => (
+                      <button
+                        key={range}
+                        type="button"
+                        className={`range-tab ${selectedRange === range ? 'active' : ''}`}
+                        onClick={() => setSelectedRange(range)}
+                      >
+                        {range}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="chart-dates">
+                    <span>{timeline?.startDate ?? '--'}</span>
+                    <span>{timeline?.endDate ?? '--'}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="section-panel calendar-panel">
+              <div className="panel-header">
+                <div>
+                  <p className="section-label">Launch Calendar</p>
+                  <h3>持仓日历</h3>
+                </div>
+                <span className="calendar-month-label">{dayjs(`${selectedMonth}-01`).format('MMM YYYY')}</span>
+                <div className="month-controls">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => {
+                      setLoading(true)
+                      setSelectedMonth(dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM'))
+                    }}
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => {
+                      setLoading(true)
+                      setSelectedMonth(dayjs(`${selectedMonth}-01`).add(1, 'month').format('YYYY-MM'))
+                    }}
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="weekday-row">
+                {weekdayLabels.map((label) => (
+                  <span key={label}>{label}</span>
                 ))}
-                {summary?.sourceBreakdown.length === 0 ? <p className="empty-state">还没有可展示的持仓分布。</p> : null}
+              </div>
+
+              <div className="calendar-grid">
+                {calendarRows.flatMap((row, rowIndex) =>
+                  row.map((day, columnIndex) => {
+                    if (!day) {
+                      return <div key={`empty-${rowIndex}-${columnIndex}`} className="calendar-blank" />
+                    }
+
+                    const ratio =
+                      day.entryCount > 0 && calendarRange.max !== calendarRange.min
+                        ? (day.amountUsd - calendarRange.min) / (calendarRange.max - calendarRange.min)
+                        : 0
+                    const tone =
+                      day.entryCount === 0
+                        ? day.marketState === 'holiday'
+                          ? 'holiday'
+                          : day.marketState === 'weekend'
+                            ? 'weekend'
+                            : 'empty'
+                        : ratio > 0.8
+                          ? 'value-5'
+                          : ratio > 0.6
+                            ? 'value-4'
+                            : ratio > 0.35
+                              ? 'value-3'
+                              : ratio > 0.15
+                                ? 'value-2'
+                                : 'value-1'
+
+                    return (
+                      <button
+                        key={day.date}
+                        type="button"
+                        className={`calendar-cell ${tone} ${selectedDate === day.date ? 'selected' : ''}`}
+                        onClick={() => setSelectedDate(day.date)}
+                        title={day.closedLabel ?? day.date}
+                      >
+                        <span className="day-number">{String(day.dayOfMonth).padStart(2, '0')}</span>
+                        {day.entryCount > 0 ? <div className="calendar-value">{formatCompactCurrency(day.amountUsd)}</div> : null}
+                        {day.entryCount === 0 && day.closedLabel ? <span className="empty-copy">{formatClosedTag(day.closedLabel)}</span> : null}
+                      </button>
+                    )
+                  }),
+                )}
+              </div>
+
+              <div className="calendar-hint">
+                <span>亮度越高，代表当天记录的持仓总额越高。</span>
+                <span>点击任意一天可以直接打开记录抽屉。</span>
+              </div>
+            </section>
+          </>
+        ) : (
+          <section className="goals-grid">
+            <div className="section-panel side-panel">
+              <div className="brief-block">
+                <div className="panel-header compact">
+                  <div>
+                    <p className="section-label">Mission Rules</p>
+                    <h3>计算规则</h3>
+                  </div>
+                </div>
+                <p className="brief-copy">
+                  本月盈利按“本月最后一条持仓减去本月第一条持仓”计算。目标进度保持线性表达，不加入额外视觉噪音。
+                </p>
               </div>
             </div>
 
-            <div className="panel-divider" />
-
-            <div className="brief-block">
-              <div className="panel-header compact">
-                <div>
-                  <p className="section-label">Recent Logs</p>
-                  <h3>最近记录</h3>
+            <div className="section-panel side-panel">
+              <div className="brief-block">
+                <div className="panel-header compact">
+                  <div>
+                    <p className="section-label">Composition</p>
+                    <h3>最新持仓分布</h3>
+                  </div>
                 </div>
-              </div>
-              <div className="recent-list">
-                {summaryData?.recentEntries.map((entry) => (
-                  <div key={entry.id} className="recent-row">
-                    <div>
-                      <strong>{dayjs(entry.entryDate).format('M月D日')}</strong>
-                      <span>{getSourceLabel(entry.source)}</span>
+                <div className="source-list">
+                  {summary?.sourceBreakdown.map((item) => (
+                    <div key={item.source} className="source-row">
+                      <span>{getSourceLabel(item.source)}</span>
+                      <strong>{formatCurrency(item.amountUsd)}</strong>
                     </div>
-                    <strong>{formatCurrency(entry.amountUsd)}</strong>
-                  </div>
-                ))}
-                {summaryData?.recentEntries.length === 0 ? <p className="empty-state">这个月还没有记录。</p> : null}
+                  ))}
+                  {summary?.sourceBreakdown.length === 0 ? <p className="empty-state">还没有可展示的持仓分布。</p> : null}
+                </div>
               </div>
             </div>
-          </div>
-        </section>
 
-        <section className="section-panel calendar-panel">
-          <div className="panel-header">
-            <div>
-              <p className="section-label">Launch Calendar</p>
-              <h3>持仓日历</h3>
+            <div className="section-panel side-panel">
+              <div className="brief-block">
+                <div className="panel-header compact">
+                  <div>
+                    <p className="section-label">Recent Logs</p>
+                    <h3>最近记录</h3>
+                  </div>
+                </div>
+                <div className="recent-list">
+                  {summaryData?.recentEntries.map((entry) => (
+                    <div key={entry.id} className="recent-row">
+                      <div>
+                        <strong>{dayjs(entry.entryDate).format('M月D日')}</strong>
+                        <span>{getSourceLabel(entry.source)}</span>
+                      </div>
+                      <strong>{formatCurrency(entry.amountUsd)}</strong>
+                    </div>
+                  ))}
+                  {summaryData?.recentEntries.length === 0 ? <p className="empty-state">这个月还没有记录。</p> : null}
+                </div>
+              </div>
             </div>
-            <span className="calendar-month-label">{dayjs(`${selectedMonth}-01`).format('MMM YYYY')}</span>
-            <div className="month-controls">
-              <button
-                type="button"
-                className="icon-button"
-                onClick={() => {
-                  setLoading(true)
-                  setSelectedMonth(dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM'))
-                }}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={() => {
-                  setLoading(true)
-                  setSelectedMonth(dayjs(`${selectedMonth}-01`).add(1, 'month').format('YYYY-MM'))
-                }}
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          </div>
-
-          <div className="weekday-row">
-            {weekdayLabels.map((label) => (
-              <span key={label}>{label}</span>
-            ))}
-          </div>
-
-          <div className="calendar-grid">
-            {calendarRows.flatMap((row, rowIndex) =>
-              row.map((day, columnIndex) => {
-                if (!day) {
-                  return <div key={`empty-${rowIndex}-${columnIndex}`} className="calendar-blank" />
-                }
-
-                const ratio =
-                  day.entryCount > 0 && calendarRange.max !== calendarRange.min
-                    ? (day.amountUsd - calendarRange.min) / (calendarRange.max - calendarRange.min)
-                    : 0
-                const tone =
-                  day.entryCount === 0
-                    ? day.marketState === 'holiday'
-                      ? 'holiday'
-                      : day.marketState === 'weekend'
-                        ? 'weekend'
-                        : 'empty'
-                    : ratio > 0.8
-                      ? 'value-5'
-                      : ratio > 0.6
-                        ? 'value-4'
-                        : ratio > 0.35
-                          ? 'value-3'
-                          : ratio > 0.15
-                            ? 'value-2'
-                            : 'value-1'
-
-                return (
-                  <button
-                    key={day.date}
-                    type="button"
-                    className={`calendar-cell ${tone} ${selectedDate === day.date ? 'selected' : ''}`}
-                    onClick={() => setSelectedDate(day.date)}
-                    title={day.closedLabel ?? day.date}
-                  >
-                    <span className="day-number">{String(day.dayOfMonth).padStart(2, '0')}</span>
-                    {day.entryCount > 0 ? <div className="calendar-value">{formatCompactCurrency(day.amountUsd)}</div> : null}
-                    {day.entryCount === 0 && day.closedLabel ? <span className="empty-copy">{formatClosedTag(day.closedLabel)}</span> : null}
-                  </button>
-                )
-              }),
-            )}
-          </div>
-
-          <div className="calendar-hint">
-            <span>亮度越高，代表当天记录的持仓总额越高。</span>
-            <span>点击任意一天可以直接打开记录抽屉。</span>
-          </div>
-        </section>
+          </section>
+        )}
       </div>
+
+      <nav className="bottom-tabs" aria-label="Primary">
+        <button
+          type="button"
+          className={`bottom-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          Dashboard
+        </button>
+        <button
+          type="button"
+          className={`bottom-tab ${activeTab === 'goals' ? 'active' : ''}`}
+          onClick={() => setActiveTab('goals')}
+        >
+          Goals
+        </button>
+      </nav>
 
       <aside className={`drawer ${selectedDate ? 'open' : ''}`}>
         <div className="drawer-header">

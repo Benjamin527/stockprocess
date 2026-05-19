@@ -43,7 +43,7 @@ button:disabled {
 
 .app-shell {
   min-height: 100vh;
-  padding: 0 0 96px;
+  padding: 0 0 128px;
 }
 
 .top-bar,
@@ -396,6 +396,13 @@ label select {
   margin-top: 20px;
 }
 
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
 .stat-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -427,6 +434,10 @@ label select {
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
 }
 
+.dashboard-grid {
+  grid-template-columns: 1fr;
+}
+
 .section-panel {
   padding: 24px;
 }
@@ -453,6 +464,7 @@ label select {
 }
 
 .chart-stage {
+  position: relative;
   height: 320px;
   margin-top: 22px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -464,6 +476,36 @@ label select {
 .chart-svg {
   width: 100%;
   height: 100%;
+}
+
+.chart-interaction-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  min-width: 116px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.92);
+  transform: translate(-50%, calc(-100% - 16px));
+  pointer-events: none;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.chart-tooltip strong {
+  font-size: 15px;
+}
+
+.chart-tooltip span {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
 }
 
 .chart-empty,
@@ -661,6 +703,37 @@ label select {
   transition: transform 200ms ease, opacity 200ms ease;
 }
 
+.bottom-tabs {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  z-index: 45;
+  display: inline-flex;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.84);
+  transform: translateX(-50%);
+  backdrop-filter: blur(18px);
+}
+
+.bottom-tab {
+  min-width: 148px;
+  padding: 12px 20px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+}
+
+.bottom-tab.active {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #fff;
+  color: #000;
+}
+
 .drawer.open {
   transform: translateY(0);
   opacity: 1;
@@ -737,7 +810,8 @@ textarea {
 @media (max-width: 1100px) {
   .hero-stage-overlay,
   .content-grid,
-  .stat-grid {
+  .stat-grid,
+  .goals-grid {
     grid-template-columns: 1fr;
   }
 
@@ -811,5 +885,14 @@ textarea {
 
   .calendar-value {
     font-size: 13px;
+  }
+
+  .bottom-tabs {
+    width: calc(100% - 20px);
+  }
+
+  .bottom-tab {
+    min-width: 0;
+    flex: 1;
   }
 }
