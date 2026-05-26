@@ -403,6 +403,45 @@ label select {
   margin-top: 20px;
 }
 
+.goals-summary-panel {
+  grid-column: 1 / -1;
+}
+
+.goals-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.goal-summary-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.goal-summary-card strong {
+  font-size: clamp(28px, 4vw, 40px);
+  letter-spacing: 0.03em;
+}
+
+.goal-summary-label,
+.goal-summary-detail {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.goal-summary-label {
+  font-size: 11px;
+}
+
+.goal-summary-detail {
+  font-size: 12px;
+}
+
 .stat-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -457,10 +496,32 @@ label select {
 .chart-summary {
   gap: 16px;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .chart-summary strong {
   font-size: 30px;
+}
+
+.chart-summary-block {
+  display: grid;
+  gap: 4px;
+}
+
+.chart-readout {
+  min-width: 148px;
+  padding-left: 18px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-readout strong {
+  font-size: 18px;
+}
+
+.chart-readout span:last-child {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.12em;
 }
 
 .chart-stage {
@@ -481,6 +542,8 @@ label select {
 .chart-interaction-layer {
   position: absolute;
   inset: 0;
+  cursor: crosshair;
+  touch-action: none;
 }
 
 .chart-tooltip {
@@ -812,6 +875,10 @@ textarea {
   .content-grid,
   .stat-grid,
   .goals-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .goals-summary-grid {
     grid-template-columns: 1fr;
   }
 

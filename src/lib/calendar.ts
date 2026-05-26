@@ -38,6 +38,8 @@ export type MonthlySummary = {
   monthKey: string
   latestValue: number
   monthChange: number
+  averageDailyProfit: number
+  averageDailyTargetProgress: number
   targetProgress: number
   monthlyTotal: number
   monthlyTargetProgress: number
@@ -143,17 +145,12 @@ function aggregateDailyTotals(entries: ProfitEntry[]) {
     .sort((left, right) => left.date.localeCompare(right.date))
 }
 
-function getWeekWindow(anchorDate: dayjs.Dayjs) {
-  const dayOffset = (anchorDate.day() + 6) % 7
-  const startDate = anchorDate.subtract(dayOffset, 'day')
-  const endDate = startDate.add(6, 'day')
-
-  return { startDate, endDate }
-}
-
 function getRangeWindow(endDate: dayjs.Dayjs, range: RangeKey) {
   if (range === '1W') {
-    return getWeekWindow(endDate)
+    return {
+      startDate: endDate.subtract(6, 'day'),
+      endDate,
+    }
   }
   if (range === '1M') {
     return {
@@ -230,6 +227,8 @@ export function buildPortfolioSummary(
     : null
   const monthProfit =
     latestValueDay && firstValueDay ? latestValueDay.amountUsd - firstValueDay.amountUsd : 0
+  const recordDays = dailyTotals.length
+  const averageDailyProfit = recordDays > 0 ? monthProfit / recordDays : 0
 
   const highestValueDay = dailyTotals.reduce<SummaryDay | null>((highest, day) => {
     if (!highest || day.amountUsd > highest.amountUsd) {
@@ -259,6 +258,8 @@ export function buildPortfolioSummary(
     monthKey,
     latestValue: latestValueDay?.amountUsd ?? 0,
     monthChange: monthProfit,
+    averageDailyProfit,
+    averageDailyTargetProgress: averageDailyProfit / 50,
     monthlyTotal: dailyTotals.reduce((total, day) => total + day.amountUsd, 0),
     monthlyTargetProgress:
       goals.monthlyTargetUsd === 0 ? 0 : monthProfit / goals.monthlyTargetUsd,
@@ -281,8 +282,12 @@ export function buildPortfolioTimeline(
   range: RangeKey,
   endDateInput: string,
 ): TimelineSummary {
-  const anchorDate = dayjs(endDateInput)
-  const { startDate, endDate } = getRangeWindow(anchorDate, range)
+  const requestedEndDate = dayjs(endDateInput)
+  const anchoredEndDate = aggregateDailyTotals(entries)
+    .map((entry) => dayjs(entry.date))
+    .filter((date) => !date.isAfter(requestedEndDate, 'day'))
+    .at(-1) ?? requestedEndDate
+  const { startDate, endDate } = getRangeWindow(anchoredEndDate, range)
   const points = aggregateDailyTotals(
     entries.filter((entry) => {
       const current = dayjs(entry.entryDate)

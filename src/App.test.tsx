@@ -16,6 +16,8 @@ const summaryResponse = {
     monthKey: '2026-05',
     latestValue: 5832,
     monthChange: 432,
+    averageDailyProfit: 216,
+    averageDailyTargetProgress: 4.32,
     targetProgress: 0.11664,
     monthlyTotal: 28567,
     monthlyTargetProgress: 0.432,
@@ -87,6 +89,7 @@ const summaryResponse = {
 describe('App', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    window.localStorage.clear()
   })
 
   afterEach(() => {
@@ -180,10 +183,140 @@ describe('App', () => {
         toJSON: () => ({}),
       }),
     })
-    fireEvent.mouseMove(chartInteractionLayer, { clientX: 400 })
+    fireEvent.pointerMove(chartInteractionLayer, { clientX: 400 })
 
     const tooltip = await screen.findByLabelText('Chart point details')
     expect(within(tooltip).getByText('$5,832.00')).toBeInTheDocument()
     expect(within(tooltip).getByText('2026-05-14')).toBeInTheDocument()
+  })
+
+  it('restores the selected tab and range from local storage on reload', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify(summaryResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    const view = render(<App />)
+
+    await screen.findByText('持仓轨迹')
+    fireEvent.click(screen.getByRole('button', { name: '6M' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Goals' }))
+
+    expect(window.localStorage.getItem('profit-calendar:active-tab')).toBe('goals')
+    expect(window.localStorage.getItem('profit-calendar:selected-range')).toBe('6M')
+
+    view.unmount()
+
+    render(<App />)
+
+    expect(await screen.findByText('计算规则')).toBeInTheDocument()
+    expect(screen.queryByText('持仓轨迹')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    expect(await screen.findByRole('button', { name: '6M' })).toHaveClass('active')
+  })
+
+  it('shows a dedicated goals summary panel with annual and monthly progress', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(summaryResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Goals' }))
+
+    expect(await screen.findByText('目标总览')).toBeInTheDocument()
+    expect(screen.getByText('年度进度')).toBeInTheDocument()
+    expect(screen.getByText('月度达成')).toBeInTheDocument()
+    expect(screen.getByText('日均达成')).toBeInTheDocument()
+    expect(screen.getByText('$216.00 / $50.00')).toBeInTheDocument()
+  })
+
+  it('shows the daily objective as a standalone mission card on the dashboard', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(summaryResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    render(<App />)
+
+    expect(await screen.findByText('Daily Objective')).toBeInTheDocument()
+    expect(screen.getByText('日均目标进度')).toBeInTheDocument()
+    expect(screen.getAllByText('+432.00%').length).toBeGreaterThan(0)
+  })
+
+  it('syncs the chart header with the active hovered point', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(summaryResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    render(<App />)
+
+    const chartInteractionLayer = await screen.findByLabelText('持仓金额变化曲线交互区')
+    Object.defineProperty(chartInteractionLayer, 'getBoundingClientRect', {
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 640,
+        height: 320,
+        right: 640,
+        bottom: 320,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+
+    fireEvent.pointerMove(chartInteractionLayer, { clientX: 400 })
+
+    expect(await screen.findByText('Point Readout')).toBeInTheDocument()
+    const readout = screen.getByLabelText('Chart readout')
+    expect(within(readout).getByText('2026-05-14')).toBeInTheDocument()
+    expect(within(readout).getByText('$5,832.00')).toBeInTheDocument()
+  })
+
+  it('clears the hovered chart point after leaving the chart', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(summaryResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    render(<App />)
+
+    const chartInteractionLayer = await screen.findByLabelText('持仓金额变化曲线交互区')
+    Object.defineProperty(chartInteractionLayer, 'getBoundingClientRect', {
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 640,
+        height: 320,
+        right: 640,
+        bottom: 320,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+
+    fireEvent.pointerMove(chartInteractionLayer, { clientX: 400 })
+    expect(await screen.findByLabelText('Chart point details')).toBeInTheDocument()
+
+    fireEvent.pointerLeave(chartInteractionLayer)
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Chart point details')).not.toBeInTheDocument()
+    })
   })
 })

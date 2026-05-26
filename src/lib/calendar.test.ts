@@ -74,6 +74,8 @@ describe('buildPortfolioSummary', () => {
     expect(summary.lowestValueDay?.date).toBe('2026-05-08')
     expect(summary.monthChange).toBe(-100)
     expect(summary.monthlyTotal).toBe(5050)
+    expect(summary.averageDailyProfit).toBeCloseTo(-100 / 3)
+    expect(summary.averageDailyTargetProgress).toBeCloseTo((-100 / 3) / 50)
     expect(summary.monthlyTargetProgress).toBeCloseTo(-0.1)
     expect(summary.targetProgress).toBeCloseTo(0.6)
     expect(summary.calendarDays.find((day) => day.date === '2026-05-01')?.amountUsd).toBe(1600)
@@ -128,6 +130,8 @@ describe('buildPortfolioSummary', () => {
     const summary = buildPortfolioSummary(entries, goals, '2026-05')
 
     expect(summary.monthChange).toBe(21)
+    expect(summary.averageDailyProfit).toBeCloseTo(5.25)
+    expect(summary.averageDailyTargetProgress).toBeCloseTo(0.105)
     expect(summary.monthlyTargetProgress).toBeCloseTo(0.021)
   })
 
@@ -168,6 +172,8 @@ describe('buildPortfolioSummary', () => {
     const summary = buildPortfolioSummary(entries, goals, '2026-05')
 
     expect(summary.monthChange).toBe(432)
+    expect(summary.averageDailyProfit).toBeCloseTo(216)
+    expect(summary.averageDailyTargetProgress).toBeCloseTo(4.32)
     expect(summary.monthlyTargetProgress).toBeCloseTo(0.432)
   })
 
@@ -238,10 +244,13 @@ describe('buildPortfolioTimeline', () => {
   it('returns 1W timeline points within the trailing week window', () => {
     const timeline = buildPortfolioTimeline(entries, '1W', '2026-05-15')
 
-    expect(timeline.startDate).toBe('2026-05-11')
-    expect(timeline.endDate).toBe('2026-05-17')
-    expect(timeline.points.map((point) => point.date)).toEqual([])
-    expect(timeline.changeAmount).toBe(0)
+    expect(timeline.startDate).toBe('2026-05-04')
+    expect(timeline.endDate).toBe('2026-05-10')
+    expect(timeline.points.map((point) => point.date)).toEqual([
+      '2026-05-05',
+      '2026-05-10',
+    ])
+    expect(timeline.changeAmount).toBe(100)
   })
 
   it('returns 1Y timeline points across year boundaries', () => {
@@ -258,7 +267,7 @@ describe('buildPortfolioTimeline', () => {
     expect(timeline.changePercent).toBeCloseTo(1)
   })
 
-  it('caps the current month timeline at the current day instead of month end', () => {
+  it('caps the current month timeline at the latest recorded day instead of month end', () => {
     const timeline = buildPortfolioTimeline(
       [
         ...entries,
@@ -275,8 +284,15 @@ describe('buildPortfolioTimeline', () => {
       '2026-05-15',
     )
 
-    expect(timeline.endDate).toBe('2026-05-15')
+    expect(timeline.endDate).toBe('2026-05-10')
     expect(timeline.points.some((point) => point.date === '2026-05-25')).toBe(false)
+  })
+
+  it('anchors historical ranges to the last recorded day on or before the selected end date', () => {
+    const timeline = buildPortfolioTimeline(entries, '1M', '2026-05-15')
+
+    expect(timeline.endDate).toBe('2026-05-10')
+    expect(timeline.points.at(-1)?.date).toBe('2026-05-10')
   })
 })
 
